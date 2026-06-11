@@ -3,6 +3,9 @@
 Cross-references firewall/NAT rules with service definitions to identify
 dangerous ports that are permitted through the firewall, especially from
 untrusted zones (WAN/Internet).
+
+Each finding references the relevant MITRE ATT&CK technique(s) and
+OWASP Top 10 2021 category in the recommendation and references fields.
 """
 from .models import Finding, Severity
 
@@ -256,6 +259,18 @@ def run(cfg) -> list[Finding]:
             rc["_flagged_service"] = f"Port {port}/{label}"
             affected_rules.append(rc)
 
+        # Build MITRE/OWASP references per port category
+        _port_refs = {
+            "Cleartext Remote":  ["MITRE ATT&CK T1040 – Network Sniffing", "MITRE ATT&CK T1557 – Adversary-in-the-Middle", "OWASP A02:2021 – Cryptographic Failures"],
+            "Database":          ["MITRE ATT&CK T1190 – Exploit Public-Facing Application", "MITRE ATT&CK T1078 – Valid Accounts", "OWASP A05:2021 – Security Misconfiguration"],
+            "Remote Access":     ["MITRE ATT&CK T1021.001 – Remote Desktop Protocol", "MITRE ATT&CK T1133 – External Remote Services", "MITRE ATT&CK T1190 – Exploit Public-Facing Application", "OWASP A05:2021 – Security Misconfiguration"],
+            "File Sharing":      ["MITRE ATT&CK T1021.002 – SMB/Windows Admin Shares", "MITRE ATT&CK T1570 – Lateral Tool Transfer", "OWASP A05:2021 – Security Misconfiguration"],
+            "Cloud/Container":   ["MITRE ATT&CK T1190 – Exploit Public-Facing Application", "MITRE ATT&CK T1611 – Escape to Host", "OWASP A05:2021 – Security Misconfiguration"],
+            "ICS/SCADA":         ["MITRE ATT&CK ICS T0855 – Unauthorized Command Message", "MITRE ATT&CK T1190 – Exploit Public-Facing Application", "OWASP A05:2021 – Security Misconfiguration"],
+            "Management":        ["MITRE ATT&CK T1040 – Network Sniffing", "MITRE ATT&CK T1046 – Network Service Discovery", "OWASP A05:2021 – Security Misconfiguration"],
+        }
+        refs = _port_refs.get(cat_tag, ["OWASP A05:2021 – Security Misconfiguration"])
+
         findings.append(Finding(
             severity=sev,
             category=_S,
@@ -267,13 +282,21 @@ def run(cfg) -> list[Finding]:
             ),
             recommendation=(
                 f"Block inbound access to port {port} from untrusted networks. "
-                f"If {label} is required, restrict to specific source IPs and enforce authentication. "
-                f"Consider placing behind VPN."
+                f"If {label} is required, restrict to specific source IPs, enforce strong authentication, "
+                f"and place behind VPN. "
+                f"Aligns with MITRE ATT&CK Mitigation M1030 (Network Segmentation) and "
+                f"M1042 (Disable or Remove Feature or Program). "
+                f"Aligns with OWASP A05:2021 – Security Misconfiguration."
             ),
             location=(
                 f"Firewall → Rules and policies → Firewall rules\n"
                 f"→ Review rules permitting port {port} from WAN → restrict source or block → Save"
             ),
+            references=refs + [
+                "MITRE ATT&CK Mitigation M1030 – Network Segmentation",
+                "MITRE ATT&CK Mitigation M1042 – Disable or Remove Feature or Program",
+                "CIS Control 4.4 – Implement and Manage a Firewall on Servers",
+            ],
             affected_rules=affected_rules,
         ))
 
@@ -324,8 +347,18 @@ def run(cfg) -> list[Finding]:
             ),
             recommendation=(
                 f"Restrict firewall rules permitting port {port} to specific source hosts/groups "
-                f"and explicitly named destination server IPs. Avoid using 'Any' as a destination for {label}."
+                f"and explicitly named destination server IPs. Avoid using 'Any' as a destination for {label}. "
+                f"Broad internal access supports MITRE ATT&CK TA0008 (Lateral Movement) — "
+                f"a compromised workstation can pivot to every {label} server in the network. "
+                f"Aligns with OWASP A01:2021 – Broken Access Control."
             ),
+            references=[
+                "MITRE ATT&CK TA0008 – Lateral Movement",
+                "MITRE ATT&CK T1021 – Remote Services",
+                "MITRE ATT&CK Mitigation M1030 – Network Segmentation",
+                "OWASP A01:2021 – Broken Access Control",
+                "CIS Control 12.2 – Establish and Maintain a Secure Network Architecture",
+            ],
             location=(
                 f"Firewall → Rules and policies → Firewall rules\n"
                 f"→ Edit rules for port {port} → change DestinationNetworks to specific server IPs → Save"

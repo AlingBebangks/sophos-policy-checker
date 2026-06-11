@@ -29,7 +29,6 @@ def run(cfg) -> list[Finding]:
         name = _val(rule, "Name", "RuleName")
         translated_port = _val(rule, "TranslatedPort", "DestinationPort", "MappedPort")
         original_port = _val(rule, "OriginalPort", "ExternalPort")
-        rule_type = _val(rule, "RuleType", "Type")
 
         for port, service in _RISKY_PORTS.items():
             if translated_port == port or original_port == port:
@@ -44,13 +43,26 @@ def run(cfg) -> list[Finding]:
             title="RDP (port 3389) exposed via DNAT",
             detail=(
                 "Remote Desktop Protocol is being port-forwarded from the WAN. "
-                "Internet-exposed RDP is one of the most common ransomware entry points."
+                "Internet-exposed RDP is one of the most common ransomware entry points "
+                "(BlueKeep CVE-2019-0708, DejaBlue CVE-2019-1181/1182)."
             ),
             recommendation=(
-                "Remove direct RDP exposure. Require RDP access only through a VPN tunnel. "
-                "If direct access is essential, restrict source IPs and enable NLA."
+                "Remove direct RDP exposure immediately. Require RDP access only through a VPN tunnel. "
+                "If direct access is essential, restrict source IPs, enable Network Level Authentication (NLA), "
+                "and enforce MFA. "
+                "Exposed RDP directly enables MITRE ATT&CK T1021.001 (Remote Desktop Protocol) "
+                "and T1133 (External Remote Services), the top ransomware initial access vector. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
             ),
-            references=["CISA Alert AA20-073A"],
+            references=[
+                "MITRE ATT&CK T1021.001 – Remote Services: Remote Desktop Protocol",
+                "MITRE ATT&CK T1133 – External Remote Services",
+                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "CISA Alert AA20-073A – Enterprise VPN Security",
+                "MS-ISAC Advisory – Ransomware Entry via Exposed RDP",
+                "CVE-2019-0708 (BlueKeep) – Unauthenticated RCE via RDP",
+            ],
             affected=rdp_exposed,
             location=(
                 f"{_NAT_NAV}\n"
@@ -71,9 +83,21 @@ def run(cfg) -> list[Finding]:
                 + ", ".join({s for _, _, s in other_risky}) + "."
             ),
             recommendation=(
-                "Remove or restrict DNAT rules for database ports, SMB, RPC, and other "
-                "internal-only protocols. Use VPN instead of direct port forwarding."
+                "Remove or restrict DNAT rules for database ports, SMB, RPC, FTP, and other "
+                "internal-only protocols. Use VPN instead of direct port forwarding. "
+                "Exposed internal services enable MITRE ATT&CK T1190 (Exploit Public-Facing Application) "
+                "and T1021.002 (SMB/Windows Admin Shares for lateral movement). "
+                "Database exposure enables T1078 (Valid Accounts) via credential brute-force. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
             ),
+            references=[
+                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                "MITRE ATT&CK T1021.002 – Remote Services: SMB/Windows Admin Shares",
+                "MITRE ATT&CK T1078 – Valid Accounts",
+                "MITRE ATT&CK T1040 – Network Sniffing (FTP/Telnet)",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "CIS Control 4.4 – Implement and Manage a Firewall on Servers",
+            ],
             location=(
                 f"{_NAT_NAV}\n"
                 "→ Find the rule by name → click the three-dot menu → Delete, "

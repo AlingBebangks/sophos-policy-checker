@@ -39,14 +39,25 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="SMTP TLS encryption not enforced",
             detail="Email relayed without TLS is transmitted in cleartext, exposing message content and credentials to interception.",
-            recommendation="Enable TLS for all inbound and outbound SMTP connections. Configure opportunistic TLS minimum.",
+            recommendation=(
+                "Enable TLS for all inbound and outbound SMTP connections. Configure opportunistic TLS minimum (TLS 1.2+). "
+                "Cleartext SMTP enables MITRE ATT&CK T1040 (Network Sniffing) and "
+                "T1557 (Adversary-in-the-Middle) — email credentials and content are visible on the wire. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1040 – Network Sniffing",
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "RFC 8314 – Use of TLS for Email Submission and Access",
+                "NIST SP 800-177 Rev 1 – Trustworthy Email",
+            ],
             location="Email → SMTP → TLS settings → Enable TLS → set minimum TLS 1.2 → Apply",
-            references=["RFC 8314", "NIST SP 800-177"],
         ))
 
     # ── SPF / DKIM / DMARC ───────────────────────────────────────────────────
-    spf  = _v(email, "SPF", "SPFCheck", "SPFVerification", "EnableSPF")
-    dkim = _v(email, "DKIM", "DKIMCheck", "DKIMVerification", "EnableDKIM")
+    spf   = _v(email, "SPF", "SPFCheck", "SPFVerification", "EnableSPF")
+    dkim  = _v(email, "DKIM", "DKIMCheck", "DKIMVerification", "EnableDKIM")
     dmarc = _v(email, "DMARC", "DMARCCheck", "EnableDMARC")
 
     if _off(spf):
@@ -55,7 +66,19 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="SPF (Sender Policy Framework) checking disabled",
             detail="Without SPF verification, spoofed sender addresses pass undetected, enabling phishing and spam relay.",
-            recommendation="Enable SPF checking to reject email from unauthorised sending hosts.",
+            recommendation=(
+                "Enable SPF checking to reject email from unauthorised sending hosts. "
+                "Disabled SPF enables MITRE ATT&CK T1566.001 (Spearphishing Attachment) and "
+                "T1036 (Masquerading) — attackers spoof your domain to deliver targeted phishing. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            references=[
+                "MITRE ATT&CK T1566.001 – Phishing: Spearphishing Attachment",
+                "MITRE ATT&CK T1036 – Masquerading",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "RFC 7208 – Sender Policy Framework (SPF)",
+                "NIST SP 800-177 Rev 1 §4.6",
+            ],
             location="Email → Antispam → SPF → Enable SPF check → Apply",
         ))
 
@@ -65,7 +88,18 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="DKIM (DomainKeys Identified Mail) checking disabled",
             detail="Without DKIM verification, tampered or spoofed email cannot be cryptographically detected.",
-            recommendation="Enable DKIM verification for inbound email.",
+            recommendation=(
+                "Enable DKIM verification for inbound email. "
+                "Disabled DKIM enables MITRE ATT&CK T1566 (Phishing) — "
+                "message tampering and domain spoofing cannot be detected cryptographically. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1566 – Phishing",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "RFC 6376 – DomainKeys Identified Mail (DKIM) Signatures",
+                "NIST SP 800-177 Rev 1 §4.5",
+            ],
             location="Email → Antispam → DKIM → Enable DKIM check → Apply",
         ))
 
@@ -74,8 +108,20 @@ def run(cfg) -> list[Finding]:
             severity=Severity.MEDIUM,
             category=_S,
             title="DMARC checking disabled",
-            detail="DMARC combines SPF and DKIM to enforce domain-level email policy. Without it, spoofing protections are weaker.",
-            recommendation="Enable DMARC checking and configure reject or quarantine policy.",
+            detail="DMARC combines SPF and DKIM to enforce domain-level email policy. Without it, spoofing protections are incomplete.",
+            recommendation=(
+                "Enable DMARC checking and configure reject or quarantine policy. "
+                "Without DMARC, MITRE ATT&CK T1566.001 (Spearphishing Attachment) using spoofed domains "
+                "succeeds even when SPF and DKIM are present but misaligned. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            references=[
+                "MITRE ATT&CK T1566.001 – Phishing: Spearphishing Attachment",
+                "MITRE ATT&CK T1036 – Masquerading",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "RFC 7489 – Domain-based Message Authentication (DMARC)",
+                "NIST SP 800-177 Rev 1 §4.7",
+            ],
             location="Email → Antispam → DMARC → Enable DMARC check → Apply",
         ))
 
@@ -87,7 +133,18 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="Antispam scanning disabled",
             detail="Spam filtering disabled means users receive all spam, including phishing emails with malicious links.",
-            recommendation="Enable antispam scanning for all inbound SMTP connections.",
+            recommendation=(
+                "Enable antispam scanning for all inbound SMTP connections. "
+                "Disabled antispam enables MITRE ATT&CK T1566 (Phishing) at scale — "
+                "mass phishing campaigns reach every inbox without gateway filtering. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            references=[
+                "MITRE ATT&CK T1566 – Phishing",
+                "MITRE ATT&CK T1566.002 – Phishing: Spearphishing Link",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "CIS Control 9.6 – Block Unnecessary File Types",
+            ],
             location="Email → Antispam → Enable antispam → Apply",
         ))
 
@@ -99,7 +156,20 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="SMTP relay may be configured as open relay",
             detail="An open relay allows any sender to use the firewall to send email to any destination, enabling spam abuse and IP blacklisting.",
-            recommendation="Restrict SMTP relay to authenticated senders or specific internal IP ranges only.",
+            recommendation=(
+                "Restrict SMTP relay to authenticated senders or specific internal IP ranges only. "
+                "An open relay enables MITRE ATT&CK T1566 (Phishing) at massive scale — "
+                "attackers relay spam/phishing through your IP, causing blacklisting. "
+                "Also enables T1036 (Masquerading) by relaying spoofed-sender mail. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            references=[
+                "MITRE ATT&CK T1566 – Phishing",
+                "MITRE ATT&CK T1036 – Masquerading",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "RFC 5321 §7.5 – Open Mail Relays (explicitly deprecated)",
+                "NIST SP 800-177 Rev 1 §4.1 – Preventing Open Relays",
+            ],
             location="Email → SMTP → Relay settings → restrict to authenticated users or internal networks only → Apply",
         ))
 

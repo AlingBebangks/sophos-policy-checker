@@ -18,7 +18,6 @@ def _v(d: dict, *keys: str) -> str:
 
 
 def _days_until(date_str: str) -> int | None:
-    """Parse common date formats and return days until expiry. None if unparseable."""
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%b %d %H:%M:%S %Y GMT",
                 "%Y-%m-%dT%H:%M:%S", "%d-%m-%Y"):
         try:
@@ -44,7 +43,7 @@ def run(cfg) -> list[Finding]:
         ))
         return findings
 
-    self_signed:  list[str] = []
+    self_signed:   list[str] = []
     expiring_warn: list[str] = []
     expiring_crit: list[str] = []
     expired:       list[str] = []
@@ -52,22 +51,20 @@ def run(cfg) -> list[Finding]:
     small_key:     list[str] = []
 
     for cert in certs:
-        name    = _v(cert, "Name", "CertificateName", "CommonName")
-        ca      = _v(cert, "CertificateAuthority", "CA", "IsCA", "SelfSigned",
-                     "IsSelfSigned", "Type")
-        expiry  = _v(cert, "ValidTo", "ExpiryDate", "NotAfter", "Expiry")
-        sig_alg = _v(cert, "SignatureAlgorithm", "Algorithm", "HashAlgorithm")
-        key_len = _v(cert, "KeyLength", "KeySize", "BitLength")
+        name      = _v(cert, "Name", "CertificateName", "CommonName")
+        ca        = _v(cert, "CertificateAuthority", "CA", "IsCA", "SelfSigned",
+                       "IsSelfSigned", "Type")
+        expiry    = _v(cert, "ValidTo", "ExpiryDate", "NotAfter", "Expiry")
+        sig_alg   = _v(cert, "SignatureAlgorithm", "Algorithm", "HashAlgorithm")
+        key_len   = _v(cert, "KeyLength", "KeySize", "BitLength")
         cert_type = _v(cert, "CertificateType", "Type", "Usage")
 
         label = name or "(unnamed)"
 
-        # Self-signed detection
         if ca.lower() in ("selfsigned", "self-signed", "self_signed", "yes", "true", "1") \
                 or cert_type.lower() in ("selfsigned", "self-signed"):
             self_signed.append(label)
 
-        # Expiry checks
         if expiry:
             days = _days_until(expiry)
             if days is not None:
@@ -78,11 +75,9 @@ def run(cfg) -> list[Finding]:
                 elif days <= _WARN_DAYS:
                     expiring_warn.append(f"{label} (expires in {days} days)")
 
-        # Weak signature algorithm
         if sig_alg and sig_alg.lower().replace("-", "").replace(" ", "") in _WEAK_SIG:
             weak_sig.append(f"{label} ({sig_alg})")
 
-        # Small RSA key
         try:
             if key_len and int(key_len) < 2048:
                 small_key.append(f"{label} ({key_len} bit)")
@@ -95,7 +90,17 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="Expired certificates installed",
             detail="Expired certificates cause TLS handshake failures, browser warnings, and can block VPN or management access.",
-            recommendation="Replace expired certificates immediately with valid, CA-signed certificates.",
+            recommendation=(
+                "Replace expired certificates immediately with valid, CA-signed certificates. "
+                "Expired certs are also exploited in MITRE ATT&CK T1557 (Adversary-in-the-Middle) "
+                "— clients ignoring cert errors accept fraudulent certs from attackers. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "CIS Control 4.1 – Establish and Maintain a Secure Configuration Process",
+            ],
             location="System → Certificates → find expired cert → Upload/Replace → Apply",
             affected=expired,
         ))
@@ -106,7 +111,16 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title=f"Certificates expiring within {_CRIT_DAYS} days",
             detail=f"These certificates expire within {_CRIT_DAYS} days. Failure to renew will break dependent services.",
-            recommendation="Renew or replace these certificates before expiry.",
+            recommendation=(
+                "Renew or replace these certificates before expiry. "
+                "Imminent expiry enables MITRE ATT&CK T1557 (Adversary-in-the-Middle) — "
+                "users trained to click through cert errors become easy MitM targets. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+            ],
             location="System → Certificates → select cert → Renew/Replace → Apply",
             affected=expiring_crit,
         ))
@@ -118,6 +132,10 @@ def run(cfg) -> list[Finding]:
             title=f"Certificates expiring within {_WARN_DAYS} days",
             detail=f"These certificates will expire within {_WARN_DAYS} days. Plan renewal now.",
             recommendation="Schedule certificate renewal within the next 30 days.",
+            references=[
+                "OWASP A02:2021 – Cryptographic Failures",
+                "CIS Control 4.1 – Establish and Maintain a Secure Configuration Process",
+            ],
             location="System → Certificates → select cert → Renew → Apply",
             affected=expiring_warn,
         ))
@@ -133,8 +151,16 @@ def run(cfg) -> list[Finding]:
             ),
             recommendation=(
                 "Replace self-signed certificates with certificates issued by a trusted internal CA "
-                "or a public CA (Let's Encrypt, DigiCert, etc.) for any user-facing or external service."
+                "or a public CA (Let's Encrypt, DigiCert, etc.) for any user-facing or external service. "
+                "Self-signed certs are routinely accepted in MITRE ATT&CK T1557 (Adversary-in-the-Middle) attacks — "
+                "users can't distinguish your self-signed cert from an attacker's. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
             ),
+            references=[
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "CA/Browser Forum Baseline Requirements",
+            ],
             location="System → Certificates → Upload a CA-signed certificate → bind it to the relevant service → Apply",
             affected=self_signed,
         ))
@@ -144,10 +170,21 @@ def run(cfg) -> list[Finding]:
             severity=Severity.HIGH,
             category=_S,
             title="Certificates using weak signature algorithms (SHA-1 / MD5)",
-            detail="SHA-1 and MD5 are cryptographically broken. Certificates signed with these algorithms are vulnerable to collision attacks.",
-            recommendation="Replace all SHA-1/MD5 certificates with SHA-256 or stronger.",
+            detail="SHA-1 and MD5 are cryptographically broken. Certificates signed with these algorithms are vulnerable to collision attacks enabling certificate forgery.",
+            recommendation=(
+                "Replace all SHA-1/MD5 certificates with SHA-256 or stronger. "
+                "Weak signature certs enable MITRE ATT&CK T1553.004 (Subvert Trust Controls: Install Root Certificate) "
+                "— a forged collision cert can be installed as trusted. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1553.004 – Subvert Trust Controls: Install Root Certificate",
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "NIST SP 800-131A Rev 2 – Transitioning Away from SHA-1",
+                "CA/Browser Forum Baseline Requirements §7.1.3",
+            ],
             location="System → Certificates → replace cert → upload SHA-256 signed certificate → Apply",
-            references=["NIST SP 800-131A Rev 2", "CA/Browser Forum Baseline Requirements"],
             affected=weak_sig,
         ))
 
@@ -157,9 +194,18 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="Certificates with RSA key size below 2048 bits",
             detail="RSA keys smaller than 2048 bits are considered weak and can be factored with sufficient computing resources.",
-            recommendation="Replace all sub-2048-bit certificates with 2048-bit (minimum) or 4096-bit RSA, or use ECDSA P-256/P-384.",
+            recommendation=(
+                "Replace all sub-2048-bit certificates with 2048-bit (minimum) or 4096-bit RSA, or use ECDSA P-256/P-384. "
+                "Small RSA keys enable MITRE ATT&CK T1557 (Adversary-in-the-Middle) via certificate forgery. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "NIST SP 800-57 Part 1 Rev 5 – Key Management",
+                "CA/Browser Forum Baseline Requirements §6.1.5",
+            ],
             location="System → Certificates → replace cert → generate 2048+ bit key → Apply",
-            references=["NIST SP 800-57 Part 1"],
             affected=small_key,
         ))
 

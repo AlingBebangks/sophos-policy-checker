@@ -30,7 +30,21 @@ def run(cfg) -> list[Finding]:
                 "MFA configuration was not detected. If MFA is not enforced for admin access, "
                 "a compromised password gives an attacker full control of the firewall."
             ),
-            recommendation="Enable MFA (TOTP or hardware token) for all administrator accounts.",
+            recommendation=(
+                "Enable MFA (TOTP or hardware token) for all administrator accounts. "
+                "Without MFA, MITRE ATT&CK T1078 (Valid Accounts) and T1110 (Brute Force) "
+                "give an attacker full firewall control with only a password. "
+                "MFA mitigates over 99% of account-takeover attacks (Microsoft threat research). "
+                "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1078 – Valid Accounts",
+                "MITRE ATT&CK T1110 – Brute Force",
+                "MITRE ATT&CK Mitigation M1032 – Multi-factor Authentication",
+                "OWASP A07:2021 – Identification and Authentication Failures",
+                "NIST SP 800-63B §5.1 – Authenticator Requirements",
+                "CIS Control 6.5 – Require MFA for Administrative Access",
+            ],
             location="Authentication → Multi-factor authentication\n→ Enable MFA → assign to admin profiles → Apply",
         ))
     else:
@@ -41,9 +55,21 @@ def run(cfg) -> list[Finding]:
                 category=_S,
                 title="Multi-factor authentication is disabled",
                 detail="Disabling MFA means admin access relies on password alone — a single credential leak is sufficient for full compromise.",
-                recommendation="Enable MFA for all administrator accounts immediately.",
+                recommendation=(
+                    "Enable MFA for all administrator accounts immediately. "
+                    "Disabled MFA enables MITRE ATT&CK T1078 (Valid Accounts) and T1110 (Brute Force) — "
+                    "password-only admin access is the #1 cause of firewall compromise in incident response. "
+                    "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+                ),
+                references=[
+                    "MITRE ATT&CK T1078 – Valid Accounts",
+                    "MITRE ATT&CK T1110 – Brute Force",
+                    "MITRE ATT&CK Mitigation M1032 – Multi-factor Authentication",
+                    "OWASP A07:2021 – Identification and Authentication Failures",
+                    "NIST SP 800-63B §5.1",
+                    "CIS Control 6.5 – Require MFA for Administrative Access",
+                ],
                 location="Authentication → Multi-factor authentication → Enable → Apply",
-                references=["NIST SP 800-63B §5.1", "CIS Control 6.5"],
             ))
 
     # ── Password Policy ───────────────────────────────────────────────────────
@@ -54,7 +80,14 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="Password policy not found",
             detail="No password policy configuration was detected. Weak passwords may be in use.",
-            recommendation="Configure and enforce a strong password policy for all accounts.",
+            recommendation=(
+                "Configure and enforce a strong password policy for all accounts. "
+                "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1110 – Brute Force",
+                "OWASP A07:2021 – Identification and Authentication Failures",
+            ],
             location="Authentication → Password policy → Configure complexity and minimum length → Apply",
         ))
     else:
@@ -65,10 +98,21 @@ def run(cfg) -> list[Finding]:
                     severity=Severity.MEDIUM,
                     category=_S,
                     title=f"Minimum password length too short ({min_len} characters)",
-                    detail=f"A minimum of {min_len} characters does not meet modern standards. Short passwords are vulnerable to brute force.",
-                    recommendation="Set minimum password length to 14 or more characters.",
+                    detail=f"A minimum of {min_len} characters does not meet modern standards. Short passwords are vulnerable to brute force and dictionary attacks.",
+                    recommendation=(
+                        "Set minimum password length to 14 or more characters. "
+                        "Short passwords enable MITRE ATT&CK T1110.001 (Password Guessing) and "
+                        "T1110.002 (Password Cracking) — 8-character passwords are cracked in minutes with GPUs. "
+                        "Aligns with OWASP A07:2021 – Identification and Authentication Failures and "
+                        "NIST SP 800-63B (recommends length over complexity)."
+                    ),
+                    references=[
+                        "MITRE ATT&CK T1110.001 – Brute Force: Password Guessing",
+                        "MITRE ATT&CK T1110.002 – Brute Force: Password Cracking",
+                        "OWASP A07:2021 – Identification and Authentication Failures",
+                        "NIST SP 800-63B §5.1.1 – Memorized Secret Authenticators",
+                    ],
                     location="Authentication → Password policy → Minimum length → set to 14+ → Apply",
-                    references=["NIST SP 800-63B"],
                 ))
         except (ValueError, TypeError):
             pass
@@ -80,7 +124,16 @@ def run(cfg) -> list[Finding]:
                 category=_S,
                 title="Password complexity not enforced",
                 detail="Without complexity rules, users can set trivial passwords (e.g. 'password123').",
-                recommendation="Require uppercase, lowercase, numbers, and special characters.",
+                recommendation=(
+                    "Require uppercase, lowercase, numbers, and special characters. "
+                    "Simple passwords enable MITRE ATT&CK T1110.001 (Password Guessing). "
+                    "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+                ),
+                references=[
+                    "MITRE ATT&CK T1110.001 – Brute Force: Password Guessing",
+                    "OWASP A07:2021 – Identification and Authentication Failures",
+                    "CIS Control 5.2 – Use Unique Passwords",
+                ],
                 location="Authentication → Password policy → Enable complexity rules → Apply",
             ))
 
@@ -91,9 +144,20 @@ def run(cfg) -> list[Finding]:
                 category=_S,
                 title="Account lockout policy not configured",
                 detail="Without lockout, brute-force and credential-stuffing attacks can attempt unlimited password guesses.",
-                recommendation="Set account lockout after 5 failed attempts with a 15-minute lockout duration.",
+                recommendation=(
+                    "Set account lockout after 5 failed attempts with a 15-minute lockout duration. "
+                    "Missing lockout enables MITRE ATT&CK T1110.003 (Password Spraying) — "
+                    "attackers automate thousands of guesses without triggering any defence. "
+                    "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+                ),
+                references=[
+                    "MITRE ATT&CK T1110.003 – Brute Force: Password Spraying",
+                    "MITRE ATT&CK T1110.001 – Brute Force: Password Guessing",
+                    "MITRE ATT&CK Mitigation M1036 – Account Use Policies",
+                    "OWASP A07:2021 – Identification and Authentication Failures",
+                    "CIS Control 5.2 – Use Unique Passwords",
+                ],
                 location="Authentication → Password policy → Account lockout → Enable → set threshold to 5 → Apply",
-                references=["CIS Control 5.2"],
             ))
         else:
             try:
@@ -103,7 +167,14 @@ def run(cfg) -> list[Finding]:
                         category=_S,
                         title=f"Account lockout threshold is high ({lockout} attempts)",
                         detail=f"Allowing {lockout} failed attempts before lockout gives attackers significant brute-force headroom.",
-                        recommendation="Reduce lockout threshold to 5 failed attempts.",
+                        recommendation=(
+                            "Reduce lockout threshold to 5 failed attempts. "
+                            "Aligns with MITRE ATT&CK Mitigation M1036 (Account Use Policies)."
+                        ),
+                        references=[
+                            "MITRE ATT&CK Mitigation M1036 – Account Use Policies",
+                            "OWASP A07:2021 – Identification and Authentication Failures",
+                        ],
                         location="Authentication → Password policy → Account lockout threshold → reduce to 5 → Apply",
                     ))
             except (ValueError, TypeError):
@@ -116,7 +187,17 @@ def run(cfg) -> list[Finding]:
                 category=_S,
                 title="Password expiry not enforced",
                 detail="Passwords that never expire remain valid indefinitely if compromised.",
-                recommendation="Set password expiry to 90 days for admin accounts.",
+                recommendation=(
+                    "Set password expiry to 90 days for admin accounts. "
+                    "Perpetual credentials extend the damage window of "
+                    "MITRE ATT&CK T1078 (Valid Accounts) — a stolen password stays valid forever. "
+                    "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+                ),
+                references=[
+                    "MITRE ATT&CK T1078 – Valid Accounts",
+                    "OWASP A07:2021 – Identification and Authentication Failures",
+                    "NIST SP 800-63B §5.1.1",
+                ],
                 location="Authentication → Password policy → Password expiry → set to 90 days → Apply",
             ))
 
@@ -128,7 +209,14 @@ def run(cfg) -> list[Finding]:
                     category=_S,
                     title="Password history too short or not configured",
                     detail="Without password history enforcement, users can cycle back to the same password immediately.",
-                    recommendation="Prevent reuse of the last 10 passwords.",
+                    recommendation=(
+                        "Prevent reuse of the last 10 passwords. "
+                        "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+                    ),
+                    references=[
+                        "OWASP A07:2021 – Identification and Authentication Failures",
+                        "NIST SP 800-63B §5.1.1",
+                    ],
                     location="Authentication → Password policy → Password history → set to 10 → Apply",
                 ))
         except (ValueError, TypeError):
@@ -144,14 +232,22 @@ def run(cfg) -> list[Finding]:
                 "Only local authentication is in use. External auth (RADIUS, LDAP, AD) enables "
                 "centralised credential management, audit logging, and immediate account revocation."
             ),
-            recommendation="Integrate with RADIUS, LDAP, or Active Directory for centralised authentication.",
+            recommendation=(
+                "Integrate with RADIUS, LDAP, or Active Directory for centralised authentication. "
+                "Centralised auth enables rapid revocation, reducing the dwell time of "
+                "MITRE ATT&CK T1078 (Valid Accounts) after a compromise. "
+                "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1078 – Valid Accounts",
+                "OWASP A07:2021 – Identification and Authentication Failures",
+            ],
             location="Authentication → Servers → Add RADIUS/LDAP/AD server → Apply",
         ))
     else:
         for srv in cfg.auth_servers:
-            name = _v(srv, "Name", "ServerName")
+            name  = _v(srv, "Name", "ServerName")
             stype = srv.get("_type", "")
-            # Check RADIUS for unencrypted (port 1812 without TLS is expected but log it)
             if stype == "RADIUSServer":
                 enc = _v(srv, "Encryption", "TLS", "SecureTransport")
                 if _off(enc):
@@ -160,7 +256,17 @@ def run(cfg) -> list[Finding]:
                         category=_S,
                         title=f"RADIUS server '{name}' not using encrypted transport",
                         detail="Standard RADIUS transmits authentication data with weak MD5-based protection. Use RADSEC (RADIUS over TLS) where possible.",
-                        recommendation="Upgrade to RADSEC (port 2083 over TLS) or ensure RADIUS traffic is confined to a secure management VLAN.",
+                        recommendation=(
+                            "Upgrade to RADSEC (port 2083 over TLS) or ensure RADIUS traffic is confined to a secure management VLAN. "
+                            "Unencrypted RADIUS enables MITRE ATT&CK T1040 (Network Sniffing) — "
+                            "an attacker capturing RADIUS packets can crack the MD5-protected password offline. "
+                            "Aligns with OWASP A02:2021 – Cryptographic Failures."
+                        ),
+                        references=[
+                            "MITRE ATT&CK T1040 – Network Sniffing",
+                            "OWASP A02:2021 – Cryptographic Failures",
+                            "RFC 6614 – Transport Layer Security (TLS) Encryption for RADIUS (RADSEC)",
+                        ],
                         location=f"Authentication → Servers → Edit '{name}' → enable TLS → Apply",
                     ))
             if stype == "LDAPServer":
@@ -170,8 +276,19 @@ def run(cfg) -> list[Finding]:
                         severity=Severity.HIGH,
                         category=_S,
                         title=f"LDAP server '{name}' using cleartext port 389",
-                        detail="LDAP on port 389 transmits credentials in cleartext. An attacker on the management network can capture AD credentials.",
-                        recommendation="Switch to LDAPS (port 636) or LDAP with STARTTLS.",
+                        detail="LDAP on port 389 transmits credentials in cleartext. An attacker on the management network can capture Active Directory credentials.",
+                        recommendation=(
+                            "Switch to LDAPS (port 636) or LDAP with STARTTLS. "
+                            "Cleartext LDAP enables MITRE ATT&CK T1040 (Network Sniffing) and "
+                            "T1557 (Adversary-in-the-Middle) — AD service account credentials travel in the clear. "
+                            "Aligns with OWASP A02:2021 – Cryptographic Failures."
+                        ),
+                        references=[
+                            "MITRE ATT&CK T1040 – Network Sniffing",
+                            "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                            "OWASP A02:2021 – Cryptographic Failures",
+                            "RFC 4513 – LDAP Authentication Methods and Security Mechanisms",
+                        ],
                         location=f"Authentication → Servers → Edit '{name}' → change port to 636 / enable SSL → Apply",
                     ))
 
@@ -185,8 +302,21 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title="Default 'admin' account still active",
             detail="The default administrator account name is well-known and is a common target for credential attacks.",
-            recommendation="Create a named administrator account and disable or rename the default 'admin' account.",
-            location="System → Administration → Admin and user settings → Administrators\n→ Create new admin → disable default 'admin' account",
+            recommendation=(
+                "Create a named administrator account and disable or rename the default 'admin' account. "
+                "Default accounts enable MITRE ATT&CK T1078.001 (Default Accounts) — "
+                "attackers try 'admin/admin' and 'admin/password' as first steps in every attack. "
+                "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+            ),
+            references=[
+                "MITRE ATT&CK T1078.001 – Valid Accounts: Default Accounts",
+                "OWASP A07:2021 – Identification and Authentication Failures",
+                "CIS Control 5.3 – Disable Dormant Accounts",
+            ],
+            location=(
+                "System → Administration → Admin and user settings → Administrators\n"
+                "→ Create new admin → disable default 'admin' account"
+            ),
         ))
 
     if len(admin_users) > 3:
@@ -195,7 +325,17 @@ def run(cfg) -> list[Finding]:
             category=_S,
             title=f"Large number of administrator accounts ({len(admin_users)})",
             detail="Excessive admin accounts increase the attack surface and make access reviews harder.",
-            recommendation="Review all admin accounts. Remove or demote accounts that are no longer needed.",
+            recommendation=(
+                "Review all admin accounts. Remove or demote accounts that are no longer needed. "
+                "Excessive accounts expand the MITRE ATT&CK T1078 (Valid Accounts) attack surface — "
+                "each unnecessary admin is a potential credential to compromise. "
+                "Apply principle of least privilege (OWASP A01:2021 – Broken Access Control)."
+            ),
+            references=[
+                "MITRE ATT&CK T1078 – Valid Accounts",
+                "OWASP A01:2021 – Broken Access Control",
+                "CIS Control 5.4 – Restrict Administrator Privileges to Dedicated Administrator Accounts",
+            ],
             location="System → Administration → Admin and user settings → Administrators → review and remove unused accounts",
             affected=[u.get("name", "(unnamed)") for u in admin_users],
         ))

@@ -48,7 +48,7 @@ def run(cfg) -> list[Finding]:
         lifetime = policy.get("lifetime", "")
         try:
             lt_int = int(lifetime)
-            if lt_int > 86400:  # > 24 hours
+            if lt_int > 86400:
                 short_lifetime.append((name, lifetime))
         except (ValueError, TypeError):
             pass
@@ -60,13 +60,25 @@ def run(cfg) -> list[Finding]:
             title="Weak encryption algorithms in IPSec policies",
             detail=(
                 "DES, 3DES, and NULL encryption are considered cryptographically broken "
-                "or absent. Traffic protected by these algorithms can be decrypted."
+                "or absent. Traffic protected by these algorithms can be decrypted by a "
+                "passive network observer or active attacker."
             ),
             recommendation=(
                 "Use AES-256-GCM or AES-128-GCM for Phase 1 and Phase 2 encryption. "
-                "Remove all DES/3DES/NULL cipher suites."
+                "Remove all DES/3DES/NULL cipher suites from all policies. "
+                "Weak encryption enables MITRE ATT&CK T1040 (Network Sniffing) and "
+                "T1557 (Adversary-in-the-Middle) — an attacker capturing VPN traffic "
+                "can decrypt it offline. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
             ),
-            references=["NIST SP 800-77 Rev 1", "RFC 8221"],
+            references=[
+                "MITRE ATT&CK T1040 – Network Sniffing",
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "NIST SP 800-77 Rev 1 – Guide to IPsec VPNs",
+                "RFC 8221 – Cryptographic Algorithm Implementation Requirements for ESP and AH",
+                "NSA CISA Joint Advisory – Selecting and Hardening Remote Access VPN Solutions",
+            ],
             affected=[f"{n}: {v}" for n, v in weak_enc],
         ))
 
@@ -77,13 +89,21 @@ def run(cfg) -> list[Finding]:
             title="Weak integrity/authentication algorithms in IPSec policies",
             detail=(
                 "MD5 and SHA-1 are cryptographically broken hash functions. "
-                "They are vulnerable to collision attacks and should not be used for HMAC."
+                "They are vulnerable to collision attacks and should not be used for HMAC in IPSec."
             ),
             recommendation=(
                 "Replace MD5/SHA-1 with SHA-256, SHA-384, or SHA-512 for all "
-                "Phase 1 and Phase 2 authentication."
+                "Phase 1 and Phase 2 authentication. "
+                "Broken HMAC allows MITRE ATT&CK T1557 (Adversary-in-the-Middle) attacks "
+                "where packet integrity can be undermined. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
             ),
-            references=["NIST SP 800-131A Rev 2"],
+            references=[
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "NIST SP 800-131A Rev 2 – Transitioning to Stronger Cryptographic Algorithms",
+                "RFC 8221 – Cryptographic Requirements for IPsec",
+            ],
             affected=[f"{n}: {v}" for n, v in weak_auth],
         ))
 
@@ -94,13 +114,23 @@ def run(cfg) -> list[Finding]:
             title="Weak Diffie-Hellman groups in IPSec policies",
             detail=(
                 "DH Groups 1, 2, and 5 provide 768-bit to 1536-bit security and are "
-                "considered broken against nation-state and well-resourced adversaries."
+                "considered broken against nation-state and well-resourced adversaries. "
+                "Logjam-class attacks can break 768/1024-bit DH."
             ),
             recommendation=(
-                "Use DH Group 14 (minimum) or preferably Groups 19–21 (elliptic curve). "
-                "Enable PFS on Phase 2."
+                "Use DH Group 14 (minimum, 2048-bit) or preferably Groups 19–21 (elliptic curve). "
+                "Enable PFS on Phase 2 to ensure session keys are independent. "
+                "Weak DH supports MITRE ATT&CK T1557 (Adversary-in-the-Middle) — "
+                "an attacker performing a Logjam attack can downgrade the key exchange. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures."
             ),
-            references=["RFC 8247", "NIST SP 800-77 Rev 1 §4.1"],
+            references=[
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "RFC 8247 – Algorithm Implementation Requirements for IKEv2",
+                "NIST SP 800-77 Rev 1 §4.1 – IKE Configuration",
+                "Logjam: Imperfect Forward Secrecy – weakdh.org",
+            ],
             affected=[f"{n}: {v}" for n, v in weak_dh],
         ))
 
@@ -116,8 +146,18 @@ def run(cfg) -> list[Finding]:
             recommendation=(
                 "Prefer certificate-based authentication (RSA or ECDSA) for IPSec. "
                 "If PSK must be used, ensure it is at least 20 random characters "
-                "and unique per tunnel."
+                "and unique per tunnel. "
+                "Weak or reused PSKs enable MITRE ATT&CK T1110.003 (Password Spraying) "
+                "and T1078 (Valid Accounts) — a captured PSK grants full VPN access. "
+                "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
             ),
+            references=[
+                "MITRE ATT&CK T1110.003 – Brute Force: Password Spraying",
+                "MITRE ATT&CK T1078 – Valid Accounts",
+                "OWASP A07:2021 – Identification and Authentication Failures",
+                "NIST SP 800-77 Rev 1 §4.2 – Authentication in IKE",
+                "NSA CISA Advisory – Selecting and Hardening Remote Access VPN Solutions",
+            ],
             affected=psk_policies,
         ))
 
@@ -132,8 +172,16 @@ def run(cfg) -> list[Finding]:
             ),
             recommendation=(
                 "Set Phase 1 lifetime ≤ 86400 seconds (24 h) and Phase 2 ≤ 3600 seconds (1 h). "
-                "Enable PFS to ensure forward secrecy on Phase 2 re-key."
+                "Enable PFS to ensure forward secrecy on Phase 2 re-key. "
+                "Long SA lifetimes extend the impact of MITRE ATT&CK T1040 (Network Sniffing) — "
+                "a captured session key remains valid for longer. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures (key management)."
             ),
+            references=[
+                "MITRE ATT&CK T1040 – Network Sniffing",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "NIST SP 800-77 Rev 1 §4.3 – SA Lifetimes",
+            ],
             affected=[f"{n} (lifetime={v}s)" for n, v in short_lifetime],
         ))
 
