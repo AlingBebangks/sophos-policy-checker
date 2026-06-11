@@ -9,7 +9,7 @@ _WARN_DAYS = 90
 _CRIT_DAYS = 30
 
 
-from .utils import v as _v
+from .utils import v as _v, off as _off
 
 
 def _days_until(date_str: str) -> int | None:

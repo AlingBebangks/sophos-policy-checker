@@ -37,7 +37,26 @@ class Finding:
     recommendation: str
     references: list[str] = field(default_factory=list)
     affected: list[str] = field(default_factory=list)
-    # Navigation path in the Sophos XG admin UI where the fix should be made
     location: str = ""
-    # Full rule detail cards for firewall rule findings
     affected_rules: list[dict] = field(default_factory=list)
+    # ── Scoring axes (CVSS-inspired, set per finding) ──────────────────────
+    exploitability: str = "High"    # High / Medium / Low
+    impact_scope:   str = "Network" # Network / Host / Local
+    exposure:       str = "External"# External / Internal / Adjacent
+
+
+# ── Per-finding score ─────────────────────────────────────────────────────────
+_EXPLOIT_W  = {"High": 1.0, "Medium": 0.7, "Low": 0.4}
+_SCOPE_W    = {"Network": 1.0, "Host": 0.7, "Local": 0.4}
+_EXPOSURE_W = {"External": 1.0, "Adjacent": 0.7, "Internal": 0.4}
+_SEV_BASE   = {"Critical": 10, "High": 7, "Medium": 4, "Low": 1, "Info": 0}
+
+
+def finding_score(f: Finding) -> float:
+    base = _SEV_BASE.get(f.severity.value, 0)
+    mult = (
+        _EXPLOIT_W.get(f.exploitability, 1.0)
+        * _SCOPE_W.get(f.impact_scope, 1.0)
+        * _EXPOSURE_W.get(f.exposure, 1.0)
+    )
+    return round(base * mult, 1)

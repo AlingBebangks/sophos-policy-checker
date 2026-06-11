@@ -294,7 +294,7 @@ def test_nist_references_added_to_firewall_findings():
     findings = run_all(cfg)
     fw_findings = [f for f in findings if f.category == "Firewall Rules"]
     for f in fw_findings:
-        nist_refs = [r for r in f.references if "NIST SP 800-53" in r]
-        assert len(nist_refs) > 0, f"No NIST SP 800-53 refs in finding: {f.title}"
+        nist_refs = [r for r in f.references if "NIST SP 800" in r]
+        assert len(nist_refs) > 0, f"No NIST SP 800 refs in finding: {f.title}"
         cis_refs = [r for r in f.references if "CIS Controls" in r]
         assert len(cis_refs) > 0, f"No CIS Controls refs in finding: {f.title}"

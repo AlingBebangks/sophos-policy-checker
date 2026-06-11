@@ -1,6 +1,6 @@
 """Administration and device access checks."""
 from .models import Finding, Severity
-from .utils import v as _val
+from .utils import v as _val, off as _off
 
 _ADMIN_NAV = "Administration → Device access"
 _ADMIN_SETTINGS_NAV = "Administration → Admin and user settings"
@@ -98,7 +98,7 @@ def run(cfg) -> list[Finding]:
 
     # ── Password complexity ───────────────────────────────────────────────────
     complexity = _val(admin, "PasswordComplexity", "AdminPasswordComplexity")
-    if complexity.lower() in ("disable", "disabled", "0", "false", "off", ""):
+    if _off(complexity):
         findings.append(Finding(
             severity=Severity.MEDIUM,
             category="Administration",

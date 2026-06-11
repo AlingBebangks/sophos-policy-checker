@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .parser import parse
 from .engine import run_all
-from .checks.models import Severity
+from .checks.models import Severity, finding_score
 
 _SGT = timezone(timedelta(hours=8))
 
@@ -24,7 +24,7 @@ app = FastAPI(title="Sophos Policy Checker", docs_url=None, redoc_url=None)
 
 # In-memory report store: token -> (context_dict, expiry_timestamp)
 _report_store: dict[str, tuple[dict, float]] = {}
-_REPORT_TTL = 3600  # 1 hour
+_REPORT_TTL = 900  # 15 minutes
 
 # ── Rate limiting (upload endpoint) ──────────────────────────────────────────
 # Sliding-window: max 10 uploads per IP per 60 seconds. No external dependency.
@@ -45,11 +45,14 @@ def _is_rate_limited(ip: str) -> bool:
     return False
 
 
-def _risk_score(counts: dict) -> int:
-    """0–100 risk score. Higher = worse."""
-    score = (counts["Critical"] * 25 + counts["High"] * 10 +
-             counts["Medium"] * 4  + counts["Low"] * 1)
-    return min(score, 100)
+def _risk_score(findings: list, counts: dict) -> dict:
+    """3-layer scoring: per-finding weighted score + log-normalized 0-100 + raw total."""
+    import math
+    raw = sum(finding_score(f) for f in findings)
+    # Logarithmic normalization: asymptotically approaches 100, never hard-caps.
+    # Tuning constant 30 → 1 Critical ≈ 28, 5 Criticals ≈ 81, 20 Criticals ≈ 99.
+    normalized = round(min(100.0, 100.0 * (1 - math.exp(-raw / 30))), 1)
+    return {"raw": round(raw, 1), "normalized": normalized}
 
 
 def _overall_rating(counts: dict) -> str:
@@ -62,8 +65,8 @@ def _overall_rating(counts: dict) -> str:
 
 def _exec_summary(findings: list, counts: dict) -> dict:
     """Generate executive summary text from findings."""
-    rating = _overall_rating(counts)
-    score  = _risk_score(counts)
+    rating  = _overall_rating(counts)
+    scoring = _risk_score(findings, counts)
 
     posture_map = {
         "Critical": "The firewall presents immediate, exploitable risks. Urgent remediation is required before this device is considered production-safe.",
@@ -80,10 +83,9 @@ def _exec_summary(findings: list, counts: dict) -> dict:
         obj = f"{ac} rule{'s' if ac != 1 else ''}" if ac else "configuration"
         immediate.append(f"{f.title} — affects {obj}")
 
-    # Split policy vs config counts
     policy_cats = {"Firewall Rules", "NAT Rules", "VPN — IPSec", "Administration", "Logging"}
-    policy_findings  = [f for f in findings if f.category in policy_cats]
-    config_findings  = [f for f in findings if f.category not in policy_cats]
+    policy_findings = [f for f in findings if f.category in policy_cats]
+    config_findings = [f for f in findings if f.category not in policy_cats]
 
     policy_counts = {s: 0 for s in ("Critical","High","Medium","Low","Info")}
     config_counts = {s: 0 for s in ("Critical","High","Medium","Low","Info")}
@@ -94,7 +96,8 @@ def _exec_summary(findings: list, counts: dict) -> dict:
 
     return {
         "rating":         rating,
-        "score":          score,
+        "score":          scoring["normalized"],   # 0–100 log-normalized for display
+        "score_raw":      scoring["raw"],          # unbounded raw for detailed view
         "posture":        posture_map[rating],
         "immediate":      immediate,
         "total":          len(findings),
