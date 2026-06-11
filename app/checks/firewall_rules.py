@@ -14,12 +14,10 @@ def _is_any(values: list[str]) -> bool:
     return not values or any(v.strip().lower() in _ANY for v in values)
 
 
-def _rule_label(rule: dict, idx: int) -> str:
-    """Human-readable label including position for quick location."""
+def _label(rule: dict) -> str:
     name = rule.get("name") or "(unnamed)"
-    pos = rule.get("position", "")
-    pos_str = f"position {pos}" if pos else f"#{idx + 1} in policy"
-    return f"{name} ({pos_str})"
+    pos = rule.get("position") or rule.get("policy_index", "")
+    return f"{name} (policy position #{pos})"
 
 
 def run(cfg) -> list[Finding]:
@@ -36,14 +34,13 @@ def run(cfg) -> list[Finding]:
         ))
         return findings
 
-    any_any_rules: list[str] = []
-    no_log_rules: list[str] = []
-    disabled_rules: list[str] = []
-    all_services_rules: list[str] = []
-    risky_service_rules: list[tuple[str, str]] = []
+    any_any_rules: list[dict] = []
+    no_log_rules: list[dict] = []
+    disabled_rules: list[dict] = []
+    all_services_rules: list[dict] = []
+    risky_service_rules: list[tuple[dict, str]] = []
 
-    for idx, rule in enumerate(rules):
-        label = _rule_label(rule, idx)
+    for rule in rules:
         status = rule.get("status", "Enable").lower()
         action = rule.get("action", "").lower()
         src_nets = rule.get("src_networks", [])
@@ -52,20 +49,20 @@ def run(cfg) -> list[Finding]:
         log = rule.get("log_traffic", "Disable").lower()
 
         if status in ("disable", "disabled", "0", "false"):
-            disabled_rules.append(label)
+            disabled_rules.append(rule)
 
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
-            any_any_rules.append(label)
+            any_any_rules.append(rule)
 
         if log in ("disable", "disabled", "0", "false", "off") and action in ("accept", "allow"):
-            no_log_rules.append(label)
+            no_log_rules.append(rule)
 
         if _is_any(services) and action in ("accept", "allow"):
-            all_services_rules.append(label)
+            all_services_rules.append(rule)
 
         for svc in services:
             if svc.strip().lower() in _RISKY_SERVICES:
-                risky_service_rules.append((label, svc))
+                risky_service_rules.append((rule, svc))
 
     if any_any_rules:
         findings.append(Finding(
@@ -86,7 +83,8 @@ def run(cfg) -> list[Finding]:
                 "from 'Any' to specific host/network objects → Save"
             ),
             references=["CIS Benchmark: Firewall Rule Review", "NIST SP 800-41 Rev 1 §3.2"],
-            affected=any_any_rules,
+            affected=[_label(r) for r in any_any_rules],
+            affected_rules=any_any_rules,
         ))
 
     if all_services_rules:
@@ -107,11 +105,15 @@ def run(cfg) -> list[Finding]:
                 "→ Click the rule name → Edit → under 'Services / Destination', remove 'Any' "
                 "and add only the specific services needed → Save"
             ),
-            affected=all_services_rules,
+            affected=[_label(r) for r in all_services_rules],
+            affected_rules=all_services_rules,
         ))
 
     if risky_service_rules:
-        affected = [f"{r} — service: {s}" for r, s in risky_service_rules]
+        # Annotate each rule dict with the flagged service for display
+        annotated = []
+        for r, svc in risky_service_rules:
+            annotated.append({**r, "_flagged_service": svc})
         findings.append(Finding(
             severity=Severity.HIGH,
             category="Firewall Rules",
@@ -129,10 +131,11 @@ def run(cfg) -> list[Finding]:
                 f"{_FW_NAV}\n"
                 "→ Click the rule name → Edit → under 'Services', remove the insecure service "
                 "and replace with the secure equivalent → Save\n"
-                "To delete the service object entirely: Hosts and services → Services"
+                "To delete the service object: Hosts and services → Services"
             ),
             references=["OWASP: Use of Broken or Risky Cryptographic Algorithm"],
-            affected=affected,
+            affected=[f"{_label(r)} — flagged service: {s}" for r, s in risky_service_rules],
+            affected_rules=annotated,
         ))
 
     if no_log_rules:
@@ -152,7 +155,8 @@ def run(cfg) -> list[Finding]:
                 f"{_FW_NAV}\n"
                 "→ Click the rule name → Edit → scroll to 'Log traffic' → set to 'Enable' → Save"
             ),
-            affected=no_log_rules,
+            affected=[_label(r) for r in no_log_rules],
+            affected_rules=no_log_rules,
         ))
 
     if disabled_rules:
@@ -173,7 +177,8 @@ def run(cfg) -> list[Finding]:
                 "→ Find the rule (shown with a grey toggle) → click the three-dot menu "
                 "on the right → Delete (if no longer needed) or add a description explaining why it is disabled"
             ),
-            affected=disabled_rules,
+            affected=[_label(r) for r in disabled_rules],
+            affected_rules=disabled_rules,
         ))
 
     return findings

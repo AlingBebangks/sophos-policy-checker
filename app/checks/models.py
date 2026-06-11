@@ -39,3 +39,5 @@ class Finding:
     affected: list[str] = field(default_factory=list)
     # Navigation path in the Sophos XG admin UI where the fix should be made
     location: str = ""
+    # Full rule detail cards for firewall rule findings
+    affected_rules: list[dict] = field(default_factory=list)

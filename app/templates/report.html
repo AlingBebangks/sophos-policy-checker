@@ -111,6 +111,40 @@
   .ref-list li::before { content: "→ "; color: #2980b9; }
   .ref-list li { font-size: 0.85rem; }
 
+  /* Rule detail cards */
+  .rule-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+  .rule-card {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    font-size: 0.83rem;
+  }
+  .rule-card-header {
+    display: flex; align-items: center; gap: 10px;
+    background: #f4f6f7; padding: 8px 12px; border-bottom: 1px solid var(--border);
+    font-weight: 700;
+  }
+  .rule-pos {
+    background: #2c3e50; color: white; border-radius: 4px;
+    padding: 2px 7px; font-size: 0.75rem; white-space: nowrap;
+  }
+  .rule-id { font-size: 0.72rem; color: #999; margin-left: auto; font-family: monospace; }
+  .rule-status-on  { color: #27ae60; font-weight: 700; }
+  .rule-status-off { color: #e74c3c; font-weight: 700; }
+  .rule-card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .rule-field {
+    padding: 7px 12px; border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .rule-field:nth-child(even) { border-right: none; }
+  .rule-field-label { font-size: 0.70rem; text-transform: uppercase; letter-spacing: .4px; color: #999; margin-bottom: 3px; }
+  .rule-field-value { font-family: monospace; color: #2c3e50; word-break: break-all; }
+  .tag { display: inline-block; background: #eef2f7; border-radius: 3px; padding: 1px 6px; margin: 1px; font-size: 0.78rem; }
+  .tag-any  { background: #fde8e8; color: #c0392b; font-weight: 700; }
+  .tag-warn { background: #fef3e2; color: #e67e22; font-weight: 600; }
+  .tag-off  { background: #fde8e8; color: #c0392b; }
+  .tag-on   { background: #eafaf1; color: #27ae60; }
+  .rule-action-accept { color: #27ae60; font-weight: 700; }
+  .rule-action-drop   { color: #e74c3c; font-weight: 700; }
+
   .location-box {
     background: #f0f7ff; border: 1px solid #aed6f1; border-left: 4px solid #2980b9;
     border-radius: 6px; padding: 10px 14px; font-family: monospace; font-size: 0.83rem;
@@ -236,7 +270,92 @@
       <div class="location-box">{{ f.location }}</div>
       {% endif %}
 
-      {% if f.affected %}
+      {% if f.affected_rules %}
+      <h4>Affected Rules ({{ f.affected_rules|length }})</h4>
+      <div class="rule-cards">
+        {% for r in f.affected_rules %}
+        {% set action = r.action | lower %}
+        {% set log = r.log_traffic | lower %}
+        {% set status = r.status | lower %}
+        <div class="rule-card">
+          <div class="rule-card-header">
+            <span class="rule-pos">
+              #{{ r.policy_index if r.policy_index else r.position if r.position else '?' }}
+            </span>
+            <span>{{ r.name or '(unnamed)' }}</span>
+            {% if status in ['disable', 'disabled', '0', 'false'] %}
+            <span class="rule-status-off">● DISABLED</span>
+            {% else %}
+            <span class="rule-status-on">● ENABLED</span>
+            {% endif %}
+            {% if r.id %}<span class="rule-id">ID: {{ r.id }}</span>{% endif %}
+          </div>
+          <div class="rule-card-body">
+            <div class="rule-field">
+              <div class="rule-field-label">Action</div>
+              <div class="rule-field-value">
+                {% if action in ['accept', 'allow'] %}
+                  <span class="rule-action-accept">▶ {{ r.action | upper }}</span>
+                {% else %}
+                  <span class="rule-action-drop">✖ {{ r.action | upper }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="rule-field">
+              <div class="rule-field-label">Log Traffic</div>
+              <div class="rule-field-value">
+                {% if log in ['disable', 'disabled', '0', 'false', 'off'] %}
+                  <span class="tag tag-off">✖ Disabled</span>
+                {% else %}
+                  <span class="tag tag-on">✔ Enabled</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="rule-field">
+              <div class="rule-field-label">Source Zone → Network</div>
+              <div class="rule-field-value">
+                {% for z in r.src_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}
+                →
+                {% for n in r.src_networks %}
+                  <span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>
+                {% else %}<span class="tag tag-any">Any</span>{% endfor %}
+              </div>
+            </div>
+            <div class="rule-field">
+              <div class="rule-field-label">Destination Zone → Network</div>
+              <div class="rule-field-value">
+                {% for z in r.dst_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}
+                →
+                {% for n in r.dst_networks %}
+                  <span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>
+                {% else %}<span class="tag tag-any">Any</span>{% endfor %}
+              </div>
+            </div>
+            <div class="rule-field" style="grid-column: 1 / -1;">
+              <div class="rule-field-label">Services</div>
+              <div class="rule-field-value">
+                {% for s in r.services %}
+                  <span class="tag {% if s|lower in ['any','all','*'] %}tag-any{% elif s|lower in ['telnet','ftp','tftp','rsh','snmp','snmpv1','snmpv2','rpc','nfs'] %}tag-warn{% endif %}">{{ s }}</span>
+                {% else %}<span class="tag tag-any">Any</span>{% endfor %}
+              </div>
+            </div>
+            {% if r.description %}
+            <div class="rule-field" style="grid-column: 1 / -1;">
+              <div class="rule-field-label">Description</div>
+              <div class="rule-field-value">{{ r.description }}</div>
+            </div>
+            {% endif %}
+            {% if r._flagged_service %}
+            <div class="rule-field" style="grid-column: 1 / -1; background: #fef3e2;">
+              <div class="rule-field-label">⚠ Flagged Service</div>
+              <div class="rule-field-value"><span class="tag tag-warn">{{ r._flagged_service }}</span></div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif f.affected %}
       <h4>Affected Objects ({{ f.affected|length }})</h4>
       <div class="affected-list">
         {% for item in f.affected %}<span class="affected-tag">{{ item }}</span>{% endfor %}
