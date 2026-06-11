@@ -1,9 +1,8 @@
 """Sophos XG Policy Checker — FastAPI entry point."""
 import uuid
 import time
+from collections import deque
 from datetime import datetime, timezone, timedelta
-
-_SGT = timezone(timedelta(hours=8))
 from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -14,6 +13,8 @@ from .parser import parse
 from .engine import run_all
 from .checks.models import Severity
 
+_SGT = timezone(timedelta(hours=8))
+
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 # Raw Jinja2 env for PDF rendering (no request object required)
@@ -22,9 +23,26 @@ _jinja_env = Environment(loader=FileSystemLoader(str(BASE / "templates")))
 app = FastAPI(title="Sophos Policy Checker", docs_url=None, redoc_url=None)
 
 # In-memory report store: token -> (context_dict, expiry_timestamp)
-# Context stores everything needed to re-render (findings, counts, stats, metadata).
 _report_store: dict[str, tuple[dict, float]] = {}
 _REPORT_TTL = 3600  # 1 hour
+
+# ── Rate limiting (upload endpoint) ──────────────────────────────────────────
+# Sliding-window: max 10 uploads per IP per 60 seconds. No external dependency.
+_RATE_LIMIT    = 10
+_RATE_WINDOW   = 60  # seconds
+_rate_buckets: dict[str, deque] = {}
+
+
+def _is_rate_limited(ip: str) -> bool:
+    now = time.time()
+    bucket = _rate_buckets.setdefault(ip, deque())
+    # Drop timestamps outside the window
+    while bucket and bucket[0] < now - _RATE_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT:
+        return True
+    bucket.append(now)
+    return False
 
 
 def _risk_score(counts: dict) -> int:
@@ -132,6 +150,13 @@ async def index(request: Request):
 
 @app.post("/analyze", response_class=HTMLResponse)
 async def analyze(request: Request, config_file: UploadFile = File(...)):
+    client_ip = request.client.host if request.client else "unknown"
+    if _is_rate_limited(client_ip):
+        return HTMLResponse(
+            "<h3>Too many requests. Please wait before uploading again.</h3>",
+            status_code=429,
+        )
+
     if not config_file.filename:
         return HTMLResponse("<h3>No file uploaded.</h3>", status_code=400)
 

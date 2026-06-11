@@ -170,19 +170,52 @@ def test_parse_pptp_settings():
 
 
 # ── Service definition parsing ────────────────────────────────────────────────
+# Sophos XG stores named service objects inside a <Services> container. The
+# parser uses root.iter("Service") so it finds them at any depth — but the
+# test must reflect the real backup structure to catch depth-related regressions.
 
 _SERVICES = b"""<?xml version="1.0"?>
 <Configuration>
-  <Service>
-    <Name>Custom-Telnet</Name>
-    <DestinationPort>23</DestinationPort>
-    <Protocol>TCP</Protocol>
-  </Service>
+  <Services>
+    <Service>
+      <Name>Custom-Telnet</Name>
+      <DestinationPort>23</DestinationPort>
+      <Protocol>TCP</Protocol>
+    </Service>
+    <Service>
+      <Name>Custom-MySQL</Name>
+      <DestinationPort>3306</DestinationPort>
+      <Protocol>TCP</Protocol>
+    </Service>
+  </Services>
 </Configuration>
 """
 
 
 def test_parse_service_definitions():
     cfg = parse(_SERVICES)
-    assert "Custom-Telnet" in cfg.service_defs
+    assert "Custom-Telnet" in cfg.service_defs, "Custom-Telnet not in service_defs"
     assert cfg.service_defs["Custom-Telnet"]["dst_port"] == "23"
+    assert cfg.service_defs["Custom-Telnet"]["protocol"] == "TCP"
+    assert "Custom-MySQL" in cfg.service_defs
+    assert cfg.service_defs["Custom-MySQL"]["dst_port"] == "3306"
+
+
+def test_service_refs_in_rules_not_added_to_defs():
+    """Service name-reference nodes inside rules must not pollute service_defs."""
+    xml = b"""<?xml version="1.0"?>
+<Configuration>
+  <FirewallRule>
+    <Name>Rule1</Name>
+    <Services>
+      <Service>HTTP</Service>
+      <Service>HTTPS</Service>
+    </Services>
+  </FirewallRule>
+</Configuration>
+"""
+    cfg = parse(xml)
+    # "HTTP" and "HTTPS" are text references, not service definition objects
+    # — they have no <Name> child so must not appear in service_defs
+    assert "HTTP" not in cfg.service_defs
+    assert "HTTPS" not in cfg.service_defs

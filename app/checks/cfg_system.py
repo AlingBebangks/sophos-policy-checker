@@ -1,19 +1,8 @@
 """Config checks — System hardening (NTP, DNS, SNMP, updates, HA, backup, notifications)."""
 from .models import Finding, Severity
+from .utils import v as _v, off as _off
 
 _S = "Config — System"
-
-
-def _v(d: dict, *keys: str) -> str:
-    for k in keys:
-        v = d.get(k, "")
-        if v:
-            return str(v).strip()
-    return ""
-
-
-def _off(val: str) -> bool:
-    return val.lower() in ("disable", "disabled", "0", "false", "off", "no", "")
 
 
 def run(cfg) -> list[Finding]:

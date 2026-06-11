@@ -147,6 +147,138 @@ def test_dnat_any_source_flagged():
     assert len(hits) == 1
 
 
+# ── cfg_system checks ────────────────────────────────────────────────────────
+
+def test_snmp_v1v2_detected():
+    xml = b"""<Configuration>
+      <SNMPSettings>
+        <Version>1</Version>
+        <Community>public</Community>
+      </SNMPSettings>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="SNMPv1/v2c")
+    assert len(hits) >= 1
+    assert hits[0].severity in (Severity.CRITICAL, Severity.HIGH)
+
+
+def test_no_ntp_flagged():
+    xml = b"""<Configuration><BasicSettings><DeviceName>FW</DeviceName></BasicSettings></Configuration>"""
+    hits = _findings_of(xml, title_contains="NTP")
+    assert len(hits) >= 1
+
+
+# ── cfg_auth checks ───────────────────────────────────────────────────────────
+
+def test_mfa_disabled_flagged():
+    xml = b"""<Configuration>
+      <MFA><Enable>Disable</Enable></MFA>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="MFA")
+    assert any(f.severity in (Severity.CRITICAL, Severity.HIGH) for f in hits)
+
+
+def test_default_admin_account_flagged():
+    xml = b"""<Configuration>
+      <User>
+        <Name>admin</Name>
+        <Status>Enable</Status>
+        <Group>Administrator</Group>
+      </User>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="default")
+    assert any("admin" in f.title.lower() or "admin" in " ".join(f.affected).lower()
+               for f in hits)
+
+
+# ── cfg_certificates checks ───────────────────────────────────────────────────
+
+def test_self_signed_cert_flagged():
+    xml = b"""<Configuration>
+      <Certificate>
+        <Name>Default-Cert</Name>
+        <IsSelfSigned>true</IsSelfSigned>
+        <IsCA>false</IsCA>
+      </Certificate>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="self-signed")
+    assert len(hits) >= 1
+
+
+def test_weak_sig_cert_flagged():
+    xml = b"""<Configuration>
+      <Certificate>
+        <Name>Old-Cert</Name>
+        <SignatureAlgorithm>sha1WithRSA</SignatureAlgorithm>
+      </Certificate>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="SHA-1")
+    assert len(hits) >= 1
+    assert hits[0].severity in (Severity.HIGH, Severity.CRITICAL)
+
+
+# ── cfg_network checks ────────────────────────────────────────────────────────
+
+def test_no_dmz_zone_flagged():
+    xml = b"""<Configuration>
+      <Zone><Name>LAN</Name></Zone>
+      <Zone><Name>WAN</Name></Zone>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="DMZ")
+    assert len(hits) >= 1
+
+
+def test_zone_spoof_disabled_flagged():
+    xml = b"""<Configuration>
+      <Zone>
+        <Name>WAN</Name>
+        <IPSpoofPrevention>Disable</IPSpoofPrevention>
+      </Zone>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="spoof prevention")
+    assert len(hits) == 1
+    assert hits[0].severity == Severity.HIGH
+
+
+# ── cfg_threat checks ─────────────────────────────────────────────────────────
+
+def test_av_disabled_flagged():
+    xml = b"""<Configuration>
+      <AntiVirusSettings><Status>Disable</Status></AntiVirusSettings>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="Antivirus scanning is disabled", severity=Severity.HIGH)
+    assert len(hits) == 1
+
+
+def test_flood_protection_apply_flag_off():
+    xml = b"""<Configuration>
+      <DoSProtection>
+        <SYNFlood><ApplyFlag>Disable</ApplyFlag></SYNFlood>
+        <UDPFlood><ApplyFlag>Disable</ApplyFlag></UDPFlood>
+      </DoSProtection>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="Flood protection disabled", severity=Severity.HIGH)
+    assert len(hits) == 1
+    assert "SYN" in hits[0].title or "SYN" in " ".join(hits[0].affected)
+
+
+# ── cfg_email checks ──────────────────────────────────────────────────────────
+
+def test_smtp_tls_disabled_flagged():
+    xml = b"""<Configuration>
+      <EmailSettings><TLSEnabled>Disable</TLSEnabled></EmailSettings>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="TLS encryption not enforced", severity=Severity.HIGH)
+    assert len(hits) == 1
+
+
+def test_spf_disabled_flagged():
+    xml = b"""<Configuration>
+      <EmailSettings><SPF>Disable</SPF></EmailSettings>
+    </Configuration>"""
+    hits = _findings_of(xml, title_contains="SPF")
+    assert len(hits) >= 1
+
+
 # ── Framework reference enrichment ───────────────────────────────────────────
 
 def test_nist_references_added_to_firewall_findings():

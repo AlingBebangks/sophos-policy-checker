@@ -1,16 +1,9 @@
 """Administration and device access checks."""
 from .models import Finding, Severity
+from .utils import v as _val
 
 _ADMIN_NAV = "Administration → Device access"
 _ADMIN_SETTINGS_NAV = "Administration → Admin and user settings"
-
-
-def _val(d: dict, *keys: str) -> str:
-    for k in keys:
-        v = d.get(k, "")
-        if v:
-            return str(v).strip()
-    return ""
 
 
 def run(cfg) -> list[Finding]:

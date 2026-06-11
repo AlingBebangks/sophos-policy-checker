@@ -9,12 +9,7 @@ _WARN_DAYS = 90
 _CRIT_DAYS = 30
 
 
-def _v(d: dict, *keys: str) -> str:
-    for k in keys:
-        v = d.get(k, "")
-        if v:
-            return str(v).strip()
-    return ""
+from .utils import v as _v
 
 
 def _days_until(date_str: str) -> int | None:

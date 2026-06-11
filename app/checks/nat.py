@@ -1,5 +1,6 @@
 """NAT rule checks."""
 from .models import Finding, Severity
+from .utils import v as _val
 
 _NAT_NAV = "Firewall → Rules and policies → NAT rules"
 
@@ -8,14 +9,6 @@ _RISKY_PORTS = {
     "445": "SMB", "1433": "MSSQL", "3306": "MySQL", "3389": "RDP",
     "5900": "VNC", "5432": "PostgreSQL", "27017": "MongoDB",
 }
-
-
-def _val(d: dict, *keys: str) -> str:
-    for k in keys:
-        v = d.get(k, "")
-        if v:
-            return str(v).strip()
-    return ""
 
 
 def run(cfg) -> list[Finding]:
