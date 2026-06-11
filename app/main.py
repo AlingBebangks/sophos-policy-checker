@@ -1,7 +1,9 @@
 """Sophos XG Policy Checker — FastAPI entry point."""
 import uuid
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+_SGT = timezone(timedelta(hours=8))
 from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -108,7 +110,7 @@ def _build_context(filename: str, raw: bytes) -> dict:
 
     return {
         "filename":  filename,
-        "generated": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        "generated": datetime.now(_SGT).strftime("%Y-%m-%d %H:%M SGT"),
         "findings":  findings,
         "counts":    counts,
         "stats":     stats,
