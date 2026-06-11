@@ -1,6 +1,8 @@
 """NAT rule checks."""
 from .models import Finding, Severity
 
+_NAT_NAV = "Firewall → Rules and policies → NAT rules"
+
 _RISKY_PORTS = {
     "21": "FTP", "23": "Telnet", "135": "MS-RPC", "139": "NetBIOS",
     "445": "SMB", "1433": "MSSQL", "3306": "MySQL", "3389": "RDP",
@@ -50,6 +52,11 @@ def run(cfg) -> list[Finding]:
             ),
             references=["CISA Alert AA20-073A"],
             affected=rdp_exposed,
+            location=(
+                f"{_NAT_NAV}\n"
+                "→ Find the rule forwarding port 3389 → click the three-dot menu → Delete or Edit "
+                "to restrict the 'Original source' to a specific management IP only"
+            ),
         ))
 
     other_risky = [(n, p, s) for n, p, s in risky_port_rules if s != "RDP"]
@@ -66,6 +73,11 @@ def run(cfg) -> list[Finding]:
             recommendation=(
                 "Remove or restrict DNAT rules for database ports, SMB, RPC, and other "
                 "internal-only protocols. Use VPN instead of direct port forwarding."
+            ),
+            location=(
+                f"{_NAT_NAV}\n"
+                "→ Find the rule by name → click the three-dot menu → Delete, "
+                "or Edit to add an 'Original source' restriction to a trusted IP range"
             ),
             affected=affected,
         ))

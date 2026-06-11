@@ -37,3 +37,5 @@ class Finding:
     recommendation: str
     references: list[str] = field(default_factory=list)
     affected: list[str] = field(default_factory=list)
+    # Navigation path in the Sophos XG admin UI where the fix should be made
+    location: str = ""

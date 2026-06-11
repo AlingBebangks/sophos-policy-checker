@@ -7,9 +7,19 @@ _RISKY_SERVICES = {
     "finger", "chargen", "echo", "discard", "rpc", "nfs",
 }
 
+_FW_NAV = "Firewall → Rules and policies → Firewall rules"
+
 
 def _is_any(values: list[str]) -> bool:
     return not values or any(v.strip().lower() in _ANY for v in values)
+
+
+def _rule_label(rule: dict, idx: int) -> str:
+    """Human-readable label including position for quick location."""
+    name = rule.get("name") or "(unnamed)"
+    pos = rule.get("position", "")
+    pos_str = f"position {pos}" if pos else f"#{idx + 1} in policy"
+    return f"{name} ({pos_str})"
 
 
 def run(cfg) -> list[Finding]:
@@ -31,36 +41,31 @@ def run(cfg) -> list[Finding]:
     disabled_rules: list[str] = []
     all_services_rules: list[str] = []
     risky_service_rules: list[tuple[str, str]] = []
-    accept_no_dst_zone_rules: list[str] = []
 
-    for rule in rules:
-        name = rule.get("name") or "(unnamed)"
+    for idx, rule in enumerate(rules):
+        label = _rule_label(rule, idx)
         status = rule.get("status", "Enable").lower()
         action = rule.get("action", "").lower()
         src_nets = rule.get("src_networks", [])
         dst_nets = rule.get("dst_networks", [])
         services = rule.get("services", [])
         log = rule.get("log_traffic", "Disable").lower()
-        dst_zones = rule.get("dst_zones", [])
 
         if status in ("disable", "disabled", "0", "false"):
-            disabled_rules.append(name)
+            disabled_rules.append(label)
 
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
-            any_any_rules.append(name)
+            any_any_rules.append(label)
 
         if log in ("disable", "disabled", "0", "false", "off") and action in ("accept", "allow"):
-            no_log_rules.append(name)
+            no_log_rules.append(label)
 
         if _is_any(services) and action in ("accept", "allow"):
-            all_services_rules.append(name)
+            all_services_rules.append(label)
 
         for svc in services:
             if svc.strip().lower() in _RISKY_SERVICES:
-                risky_service_rules.append((name, svc))
-
-        if action in ("accept", "allow") and _is_any(dst_zones):
-            accept_no_dst_zone_rules.append(name)
+                risky_service_rules.append((label, svc))
 
     if any_any_rules:
         findings.append(Finding(
@@ -74,6 +79,11 @@ def run(cfg) -> list[Finding]:
             recommendation=(
                 "Replace any-to-any rules with least-privilege rules specifying explicit "
                 "source networks, destination networks, and required services only."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Click the rule name → Edit → change Source networks and Destination networks "
+                "from 'Any' to specific host/network objects → Save"
             ),
             references=["CIS Benchmark: Firewall Rule Review", "NIST SP 800-41 Rev 1 §3.2"],
             affected=any_any_rules,
@@ -92,11 +102,16 @@ def run(cfg) -> list[Finding]:
                 "Restrict each rule to the minimum set of services required. "
                 "Avoid using 'Any' in the service field for accept rules."
             ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Click the rule name → Edit → under 'Services / Destination', remove 'Any' "
+                "and add only the specific services needed → Save"
+            ),
             affected=all_services_rules,
         ))
 
     if risky_service_rules:
-        affected = [f"{r} ({s})" for r, s in risky_service_rules]
+        affected = [f"{r} — service: {s}" for r, s in risky_service_rules]
         findings.append(Finding(
             severity=Severity.HIGH,
             category="Firewall Rules",
@@ -109,6 +124,12 @@ def run(cfg) -> list[Finding]:
             recommendation=(
                 "Replace Telnet with SSH, FTP with SFTP/FTPS, SNMP v1/v2 with SNMPv3. "
                 "Remove rules for TFTP, RPC, Chargen unless absolutely required."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Click the rule name → Edit → under 'Services', remove the insecure service "
+                "and replace with the secure equivalent → Save\n"
+                "To delete the service object entirely: Hosts and services → Services"
             ),
             references=["OWASP: Use of Broken or Risky Cryptographic Algorithm"],
             affected=affected,
@@ -127,6 +148,10 @@ def run(cfg) -> list[Finding]:
                 "Enable logging on all accept rules. Forward logs to a central SIEM "
                 "or syslog server for retention and alerting."
             ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Click the rule name → Edit → scroll to 'Log traffic' → set to 'Enable' → Save"
+            ),
             affected=no_log_rules,
         ))
 
@@ -142,6 +167,11 @@ def run(cfg) -> list[Finding]:
             recommendation=(
                 "Review all disabled rules. Remove rules that are no longer needed. "
                 "Document the reason any rule is intentionally disabled."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Find the rule (shown with a grey toggle) → click the three-dot menu "
+                "on the right → Delete (if no longer needed) or add a description explaining why it is disabled"
             ),
             affected=disabled_rules,
         ))

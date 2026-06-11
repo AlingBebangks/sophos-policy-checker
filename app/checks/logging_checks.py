@@ -20,6 +20,11 @@ def run(cfg) -> list[Finding]:
                 "Configure at least one syslog server or SIEM collector. "
                 "Forward all firewall, IPS, and authentication logs to it."
             ),
+            location=(
+                "Firewall → Log settings → Syslog servers\n"
+                "→ Click 'Add' → enter server IP, port (514 UDP or 6514 TLS), "
+                "facility and severity → Save"
+            ),
             references=["CIS Sophos Benchmark §3.1", "NIST SP 800-92"],
         ))
     elif len(cfg.syslog_servers) == 1:
@@ -29,6 +34,10 @@ def run(cfg) -> list[Finding]:
             title="Only one syslog server configured",
             detail="A single syslog destination is a single point of failure for log collection.",
             recommendation="Configure a secondary syslog/SIEM destination for redundancy.",
+            location=(
+                "Firewall → Log settings → Syslog servers\n"
+                "→ Click 'Add' to add a second syslog server"
+            ),
         ))
 
     # ── IPS ───────────────────────────────────────────────────────────────────
@@ -43,6 +52,11 @@ def run(cfg) -> list[Finding]:
                 "Ensure IPS is enabled on all relevant interfaces. "
                 "Apply an appropriate IPS policy to firewall rules for inbound traffic."
             ),
+            location=(
+                "Firewall → Rules and policies → Firewall rules\n"
+                "→ Edit each WAN-facing rule → under 'Security features' enable IPS "
+                "and select an IPS policy → Save"
+            ),
         ))
     else:
         status = str(ips.get("Status", ips.get("Enable", ""))).lower()
@@ -56,6 +70,12 @@ def run(cfg) -> list[Finding]:
                     "Enable IPS and assign an IPS policy to all firewall rules handling "
                     "untrusted traffic (WAN-to-LAN, WAN-to-DMZ)."
                 ),
+                location=(
+                    "Intrusion prevention → IPS policies\n"
+                    "→ Ensure at least one policy exists, then:\n"
+                    "Firewall → Rules and policies → Firewall rules\n"
+                    "→ Edit each WAN-facing rule → enable IPS and assign the policy → Save"
+                ),
             ))
 
     # ── DoS Protection ────────────────────────────────────────────────────────
@@ -67,6 +87,10 @@ def run(cfg) -> list[Finding]:
             title="DoS Protection settings not found",
             detail="DoS/DDoS protection configuration was not detected in the backup.",
             recommendation="Verify DoS protection is enabled and tuned for your environment.",
+            location=(
+                "Firewall → Rules and policies → DoS and spoof protection\n"
+                "→ Review and enable DoS rules for WAN-facing interfaces"
+            ),
         ))
     else:
         status = str(dos.get("Status", dos.get("Enable", ""))).lower()
@@ -77,6 +101,10 @@ def run(cfg) -> list[Finding]:
                 title="DoS Protection is disabled",
                 detail="Denial-of-service protection is explicitly off, leaving the network exposed to volumetric attacks.",
                 recommendation="Enable DoS protection policies for all WAN-facing interfaces.",
+                location=(
+                    "Firewall → Rules and policies → DoS and spoof protection\n"
+                    "→ Enable DoS protection and configure flood thresholds for WAN interfaces"
+                ),
             ))
 
     return findings

@@ -1,6 +1,9 @@
 """Administration and device access checks."""
 from .models import Finding, Severity
 
+_ADMIN_NAV = "Administration → Device access"
+_ADMIN_SETTINGS_NAV = "Administration → Admin and user settings"
+
 
 def _val(d: dict, *keys: str) -> str:
     for k in keys:
@@ -33,6 +36,10 @@ def run(cfg) -> list[Finding]:
                 "certificate. Redirect HTTP to HTTPS if needed."
             ),
             references=["CIS Sophos Benchmark §1.1"],
+            location=(
+                f"{_ADMIN_NAV}\n"
+                "→ Find the zone row → uncheck 'HTTP' under the Admin column → Apply"
+            ),
         ))
 
     # ── Session timeout ───────────────────────────────────────────────────────
@@ -46,6 +53,10 @@ def run(cfg) -> list[Finding]:
                 title="Admin session timeout disabled (set to 0)",
                 detail="A session timeout of 0 means admin sessions never expire automatically.",
                 recommendation="Set the admin session timeout to 15 minutes or less.",
+                location=(
+                    f"{_ADMIN_SETTINGS_NAV}\n"
+                    "→ Scroll to 'Login security' → set 'Logout session after' to 15 minutes → Apply"
+                ),
             ))
         elif timeout_int > 30:
             findings.append(Finding(
@@ -57,6 +68,10 @@ def run(cfg) -> list[Finding]:
                     "Long timeouts leave unattended sessions exposed."
                 ),
                 recommendation="Reduce admin session timeout to 15 minutes or less.",
+                location=(
+                    f"{_ADMIN_SETTINGS_NAV}\n"
+                    "→ Scroll to 'Login security' → reduce 'Logout session after' to 15 minutes → Apply"
+                ),
             ))
     except (ValueError, TypeError):
         pass
@@ -76,6 +91,10 @@ def run(cfg) -> list[Finding]:
                 "Enable password complexity requirements: minimum 12 characters, "
                 "upper/lowercase, numbers, and special characters."
             ),
+            location=(
+                f"{_ADMIN_SETTINGS_NAV}\n"
+                "→ Scroll to 'Password complexity' → enable and configure minimum requirements → Apply"
+            ),
         ))
 
     # ── Notification email ────────────────────────────────────────────────────
@@ -87,6 +106,10 @@ def run(cfg) -> list[Finding]:
             title="No admin notification email configured",
             detail="Without a notification email, critical alerts may go unnoticed.",
             recommendation="Configure an admin notification email for system alerts and security events.",
+            location=(
+                "Administration → Notification settings\n"
+                "→ Enter email address under 'Administrator email' → Apply"
+            ),
         ))
 
     # ── Device access (zone-level admin access) ───────────────────────────────
@@ -111,6 +134,11 @@ def run(cfg) -> list[Finding]:
                         "to a dedicated out-of-band management network or VPN only."
                     ),
                     references=["CIS Sophos Benchmark §1.2"],
+                    location=(
+                        f"{_ADMIN_NAV}\n"
+                        f"→ Find the '{zone}' zone row → uncheck 'HTTPS' and 'HTTP' "
+                        "under the Admin column → Apply"
+                    ),
                 ))
 
             if ssh.lower() not in ("disable", "disabled", "0", "false", "off", ""):
@@ -125,6 +153,10 @@ def run(cfg) -> list[Finding]:
                     recommendation=(
                         "Disable SSH from WAN. If required, restrict to a specific management IP "
                         "and use certificate-based authentication."
+                    ),
+                    location=(
+                        f"{_ADMIN_NAV}\n"
+                        f"→ Find the '{zone}' zone row → uncheck 'SSH' under the Admin column → Apply"
                     ),
                 ))
 

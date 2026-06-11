@@ -111,6 +111,12 @@
   .ref-list li::before { content: "→ "; color: #2980b9; }
   .ref-list li { font-size: 0.85rem; }
 
+  .location-box {
+    background: #f0f7ff; border: 1px solid #aed6f1; border-left: 4px solid #2980b9;
+    border-radius: 6px; padding: 10px 14px; font-family: monospace; font-size: 0.83rem;
+    white-space: pre-line; line-height: 1.7; color: #1a5276; margin-top: 4px;
+  }
+
   .no-findings { background: white; border-radius: 10px; padding: 24px; text-align: center; color: #6c757d; }
 
   footer { text-align: center; padding: 24px; font-size: 0.78rem; color: #aaa; }
@@ -224,6 +230,11 @@
 
       <h4>Recommendation</h4>
       <p>{{ f.recommendation }}</p>
+
+      {% if f.location %}
+      <h4>📍 Where to fix in Sophos XG</h4>
+      <div class="location-box">{{ f.location }}</div>
+      {% endif %}
 
       {% if f.affected %}
       <h4>Affected Objects ({{ f.affected|length }})</h4>
