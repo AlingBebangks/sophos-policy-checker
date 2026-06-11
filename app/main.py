@@ -25,6 +25,51 @@ _report_store: dict[str, tuple[dict, float]] = {}
 _REPORT_TTL = 3600  # 1 hour
 
 
+def _risk_score(counts: dict) -> int:
+    """0–100 risk score. Higher = worse."""
+    score = (counts["Critical"] * 25 + counts["High"] * 10 +
+             counts["Medium"] * 4  + counts["Low"] * 1)
+    return min(score, 100)
+
+
+def _overall_rating(counts: dict) -> str:
+    if counts["Critical"] > 0: return "Critical"
+    if counts["High"]     > 0: return "High"
+    if counts["Medium"]   > 0: return "Medium"
+    if counts["Low"]      > 0: return "Low"
+    return "Passed"
+
+
+def _exec_summary(findings: list, counts: dict) -> dict:
+    """Generate executive summary text from findings."""
+    rating = _overall_rating(counts)
+    score  = _risk_score(counts)
+
+    posture_map = {
+        "Critical": "The firewall configuration presents immediate, exploitable risks. Urgent remediation is required before this device is considered production-safe.",
+        "High":     "The configuration contains serious weaknesses that significantly increase exposure. Remediation should be prioritised within the current sprint or change cycle.",
+        "Medium":   "The configuration meets a basic security baseline but has notable gaps that should be addressed in the near term.",
+        "Low":      "The configuration is broadly sound. Minor hardening improvements are recommended.",
+        "Passed":   "No policy issues were detected. Continue to review configurations periodically.",
+    }
+
+    top = [f for f in findings if f.severity.value in ("Critical", "High")][:5]
+
+    immediate = []
+    for f in top:
+        affected_count = len(f.affected_rules) or len(f.affected)
+        obj = f"{affected_count} rule{'s' if affected_count != 1 else ''}" if affected_count else "configuration"
+        immediate.append(f"{f.title} — affects {obj}")
+
+    return {
+        "rating":    rating,
+        "score":     score,
+        "posture":   posture_map[rating],
+        "immediate": immediate,
+        "total":     len(findings),
+    }
+
+
 def _build_context(filename: str, raw: bytes) -> dict:
     cfg = parse(raw)
     findings = run_all(cfg)
@@ -35,23 +80,24 @@ def _build_context(filename: str, raw: bytes) -> dict:
 
     stats = {
         "firewall_rules": len(cfg.firewall_rules),
-        "nat_rules": len(cfg.nat_rules),
-        "vpn_ipsec": len(cfg.vpn_ipsec),
-        "vpn_ssl": len(cfg.vpn_ssl),
+        "nat_rules":      len(cfg.nat_rules),
+        "vpn_ipsec":      len(cfg.vpn_ipsec),
+        "vpn_ssl":        len(cfg.vpn_ssl),
         "syslog_servers": len(cfg.syslog_servers),
-        "certificates": len(cfg.certificates),
-        "raw_sections": {k: v for k, v in cfg.raw_sections.items()
-                         if k not in {"FirewallRule", "NATRule", "IPsecPolicy",
-                                      "SSLVPNPolicy", "SyslogServer", "Certificate",
-                                      "Zone", "Services"}},
+        "certificates":   len(cfg.certificates),
+        "raw_sections":   {k: v for k, v in cfg.raw_sections.items()
+                           if k not in {"FirewallRule", "NATRule", "IPsecPolicy",
+                                        "SSLVPNPolicy", "SyslogServer", "Certificate",
+                                        "Zone", "Services"}},
     }
 
     return {
-        "filename": filename,
+        "filename":  filename,
         "generated": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        "findings": findings,
-        "counts": counts,
-        "stats": stats,
+        "findings":  findings,
+        "counts":    counts,
+        "stats":     stats,
+        "exec":      _exec_summary(findings, counts),
     }
 
 
