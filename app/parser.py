@@ -46,6 +46,7 @@ class SophosConfig:
     email_settings: dict        = field(default_factory=dict)
     # Misc
     services:       list[dict]  = field(default_factory=list)
+    service_defs:   dict        = field(default_factory=dict)  # name -> {ports, protocol}
     raw_sections:   dict[str,int] = field(default_factory=dict)
 
 
@@ -279,5 +280,22 @@ def parse(xml_bytes: bytes) -> SophosConfig:
 
     for svc in root.iter("Services"):
         cfg.services.append(_el_to_dict(svc))
+
+    # ── Service definitions (port map) ────────────────────────────────────────
+    # Capture individual <Service> elements that carry port information.
+    # These are the named service objects (built-in + custom) referenced by rules.
+    for svc in root.iter("Service"):
+        name = _text(svc, "Name") or svc.get("name", "") or svc.get("Name", "")
+        if not name:
+            continue
+        dst_port = _text(svc, "DestinationPort") or _text(svc, "DstPort") or _text(svc, "Port")
+        src_port = _text(svc, "SourcePort") or _text(svc, "SrcPort")
+        protocol = _text(svc, "Protocol") or _text(svc, "Type", "")
+        if dst_port or protocol:
+            cfg.service_defs[name] = {
+                "dst_port": dst_port,
+                "src_port": src_port,
+                "protocol": protocol,
+            }
 
     return cfg

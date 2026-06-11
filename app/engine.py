@@ -5,6 +5,7 @@ from .checks import (
     firewall_rules, vpn, admin, logging_checks, nat,
     # Config checks
     cfg_system, cfg_auth, cfg_certificates, cfg_network, cfg_threat, cfg_email,
+    cfg_ports,
 )
 from .parser import SophosConfig
 
@@ -16,6 +17,7 @@ def run_all(cfg: SophosConfig) -> list[Finding]:
         firewall_rules, vpn, admin, logging_checks, nat,
         # Configuration hardening
         cfg_system, cfg_auth, cfg_certificates, cfg_network, cfg_threat, cfg_email,
+        cfg_ports,
     ):
         findings.extend(module.run(cfg))
     findings.sort(key=lambda f: SEVERITY_ORDER[f.severity])
