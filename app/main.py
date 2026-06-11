@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
+from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 
 from .parser import parse
@@ -13,6 +14,8 @@ from .checks.models import Severity
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
+# Raw Jinja2 env for PDF rendering (no request object required)
+_jinja_env = Environment(loader=FileSystemLoader(str(BASE / "templates")))
 
 app = FastAPI(title="Sophos Policy Checker", docs_url=None, redoc_url=None)
 
@@ -103,8 +106,7 @@ async def report_pdf(token: str):
         return HTMLResponse("<h3>Report expired or not found. Please re-upload your config.</h3>", status_code=404)
 
     ctx, _ = entry
-    html_str = templates.get_template("report.html").render(
-        request=None,
+    html_str = _jinja_env.get_template("report.html").render(
         token=token,
         pdf_mode=True,
         **ctx,
