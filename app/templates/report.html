@@ -186,7 +186,7 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 
 
 /* ═══════════════════════════════════════════════════════════
-   PDF STYLES  (WeasyPrint-safe, table-based)
+   PDF STYLES  (WeasyPrint-safe — real <table> elements only)
 ═══════════════════════════════════════════════════════════ */
 @media print {
   .web-only{display:none!important}
@@ -194,82 +194,79 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 
   @page{
     size:A4;
-    margin:16mm 14mm 14mm 14mm;
+    margin:18mm 15mm 15mm 15mm;
     @bottom-center{
       content:"Firewall Security Assessment  ·  AIVAPT  ·  Page " counter(page) " of " counter(pages);
-      font-size:8pt;color:#999;font-family:Arial,sans-serif;
+      font-size:7.5pt;color:#aaa;font-family:Arial,sans-serif;
     }
   }
 
-  body{font-family:Arial,sans-serif;font-size:9.5pt;color:#1c2833;background:#fff;line-height:1.45}
+  body{font-family:Arial,sans-serif;font-size:9pt;color:#1c2833;background:#fff;line-height:1.45}
+  h1,h2,h3{font-family:Arial,sans-serif}
 
   /* Cover strip */
-  .pdf-cover{background:#1a252f;color:#fff;padding:14pt 18pt;margin-bottom:12pt}
-  .pdf-cover h1{font-size:14pt;font-weight:700;margin-bottom:3pt}
-  .pdf-cover .sub{font-size:8.5pt;color:#8fa8b8;margin-bottom:6pt}
+  .pdf-cover{background:#1a252f;color:#fff;padding:14pt 18pt;margin-bottom:14pt}
+  .pdf-cover h1{font-size:15pt;font-weight:700;margin-bottom:2pt;color:#fff}
+  .pdf-cover .sub{font-size:8.5pt;color:#8fa8b8;margin-bottom:8pt}
   .pdf-meta-table{width:100%;border-collapse:collapse;font-size:8pt;color:#8fa8b8}
-  .pdf-meta-table td{padding:1pt 0}
+  .pdf-meta-table td{padding:1.5pt 0}
   .pdf-meta-table td:last-child{text-align:right;color:#cdd9e5}
 
   /* Exec summary */
-  .pdf-exec-table{width:100%;border-collapse:collapse;margin-bottom:10pt;
-    border:1pt solid #dee2e8;border-radius:4pt}
-  .pdf-exec-table td,.pdf-exec-table th{padding:5pt 8pt;vertical-align:top;
+  .pdf-exec-table{width:100%;border-collapse:collapse;margin-bottom:12pt;border:1pt solid #dee2e8}
+  .pdf-exec-table td,.pdf-exec-table th{padding:6pt 9pt;vertical-align:top;
     border-bottom:1pt solid #dee2e8;font-size:8.5pt}
   .pdf-exec-table th{background:#f4f6f8;font-weight:700;font-size:7.5pt;
-    text-transform:uppercase;letter-spacing:.4pt;color:#6c757d;width:120pt}
+    text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;width:110pt}
   .pdf-exec-table tr:last-child td,.pdf-exec-table tr:last-child th{border-bottom:none}
 
   /* Risk badge */
-  .pdf-risk-Critical{color:#c0392b;font-weight:700;font-size:13pt}
-  .pdf-risk-High{color:#d35400;font-weight:700;font-size:13pt}
-  .pdf-risk-Medium{color:#b7950b;font-weight:700;font-size:13pt}
-  .pdf-risk-Low{color:#2471a3;font-weight:700;font-size:13pt}
-  .pdf-risk-Passed{color:#1e8449;font-weight:700;font-size:13pt}
+  .pdf-risk-Critical{color:#c0392b;font-weight:700;font-size:12pt}
+  .pdf-risk-High    {color:#d35400;font-weight:700;font-size:12pt}
+  .pdf-risk-Medium  {color:#b7950b;font-weight:700;font-size:12pt}
+  .pdf-risk-Low     {color:#2471a3;font-weight:700;font-size:12pt}
+  .pdf-risk-Passed  {color:#1e8449;font-weight:700;font-size:12pt}
 
   /* Count grid */
-  .pdf-counts{width:100%;border-collapse:collapse;margin-bottom:10pt}
-  .pdf-counts td{border:1pt solid #dee2e8;padding:5pt 8pt;text-align:center;width:20%}
-  .pdf-counts .cn{font-size:16pt;font-weight:800;line-height:1;display:block}
+  .pdf-counts{width:100%;border-collapse:collapse;margin-bottom:12pt}
+  .pdf-counts td{border:1pt solid #dee2e8;padding:6pt 8pt;text-align:center;width:20%;
+    background:#fafbfc}
+  .pdf-counts .cn{font-size:18pt;font-weight:800;line-height:1;display:block}
   .pdf-counts .cl{font-size:7pt;text-transform:uppercase;letter-spacing:.4pt;
     color:#6c757d;display:block;margin-top:2pt}
   .cn-c{color:#c0392b}.cn-h{color:#d35400}.cn-m{color:#b7950b}
   .cn-l{color:#2471a3}.cn-i{color:#717d7e}
 
-  /* Inventory */
-  .pdf-inv{font-size:7.5pt;color:#6c757d;margin-bottom:10pt;line-height:1.8}
-  .pdf-inv strong{color:#1c2833}
-
   /* Section heading */
-  .pdf-sev-head{margin:10pt 0 4pt;page-break-after:avoid}
-  .pdf-sev-head span{display:inline-block;padding:2pt 8pt;border-radius:2pt;
-    font-size:7pt;font-weight:800;text-transform:uppercase;letter-spacing:.5pt}
+  .pdf-sev-head{margin:12pt 0 5pt;page-break-after:avoid}
+  .pdf-sev-label{display:inline-block;padding:2pt 9pt;
+    font-size:7pt;font-weight:800;text-transform:uppercase;letter-spacing:.5pt;
+    border:1pt solid currentColor}
   .psh-Critical{background:#fdf0ef;color:#c0392b}
   .psh-High    {background:#fef3ea;color:#d35400}
   .psh-Medium  {background:#fefce7;color:#b7950b}
   .psh-Low     {background:#eaf4fc;color:#2471a3}
   .psh-Info    {background:#f4f6f7;color:#717d7e}
-  .pdf-sev-head hr{border:none;border-top:1pt solid #dee2e8;margin-top:3pt}
+  .pdf-sev-hr{border:none;border-top:1pt solid #dee2e8;margin:3pt 0 6pt}
 
-  /* Finding block */
-  .pdf-finding{border:1pt solid #dee2e8;border-left:3pt solid #dee2e8;
-    margin-bottom:6pt;page-break-inside:avoid;border-radius:2pt;overflow:hidden}
+  /* Finding wrapper — NO overflow:hidden, NO border-radius (WeasyPrint chokes on both) */
+  .pdf-finding{border:1pt solid #dee2e8;border-left:3pt solid #aaa;margin-bottom:8pt}
   .pdf-finding-Critical{border-left-color:#c0392b}
   .pdf-finding-High    {border-left-color:#d35400}
   .pdf-finding-Medium  {border-left-color:#b7950b}
   .pdf-finding-Low     {border-left-color:#2471a3}
   .pdf-finding-Info    {border-left-color:#717d7e}
 
-  .pdf-f-head{display:table;width:100%;background:#f8f9fa;
-    padding:5pt 8pt;border-bottom:1pt solid #dee2e8}
-  .pdf-f-head-inner{display:table-row}
-  .pdf-f-badge-cell{display:table-cell;vertical-align:middle;width:55pt}
-  .pdf-f-title-cell{display:table-cell;vertical-align:middle;padding-left:6pt}
-  .pdf-f-cat-cell{display:table-cell;vertical-align:middle;
-    text-align:right;width:90pt;font-size:7pt;color:#6c757d}
+  /* Finding header — REAL table */
+  .pdf-fh-tbl{width:100%;border-collapse:collapse;background:#f8f9fa;
+    border-bottom:1pt solid #dee2e8}
+  .pdf-fh-tbl td{padding:5pt 8pt;vertical-align:middle}
+  .pdf-fh-badge{width:60pt}
+  .pdf-fh-cat{width:95pt;text-align:right;font-size:7pt;color:#6c757d}
 
-  .pdf-fbadge{display:inline-block;padding:2pt 6pt;border-radius:2pt;
-    font-size:6.5pt;font-weight:800;text-transform:uppercase;letter-spacing:.4pt}
+  .pdf-fbadge{display:inline-block;padding:2pt 6pt;
+    font-size:6.5pt;font-weight:800;text-transform:uppercase;letter-spacing:.4pt;
+    border:1pt solid currentColor}
   .pfb-Critical{background:#fdf0ef;color:#c0392b}
   .pfb-High    {background:#fef3ea;color:#d35400}
   .pfb-Medium  {background:#fefce7;color:#b7950b}
@@ -277,35 +274,33 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   .pfb-Info    {background:#f4f6f7;color:#717d7e}
 
   .pdf-f-title{font-weight:700;font-size:8.5pt}
-  .pdf-f-ac{font-size:7pt;color:#6c757d;margin-left:5pt}
+  .pdf-f-ac{font-size:7pt;color:#888;margin-left:5pt}
 
-  .pdf-f-body{display:table;width:100%;border-collapse:collapse}
-  .pdf-f-row{display:table-row}
-  .pdf-f-lbl{display:table-cell;width:75pt;padding:5pt 8pt;
-    font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.3pt;
-    color:#6c757d;background:#fafbfc;border-bottom:1pt solid #dee2e8;
-    border-right:1pt solid #dee2e8;vertical-align:top}
-  .pdf-f-val{display:table-cell;padding:5pt 8pt;font-size:8pt;
-    line-height:1.5;border-bottom:1pt solid #dee2e8;vertical-align:top}
-  .pdf-f-row:last-child .pdf-f-lbl,
-  .pdf-f-row:last-child .pdf-f-val{border-bottom:none}
+  /* Finding body — REAL table */
+  .pdf-fb-tbl{width:100%;border-collapse:collapse}
+  .pdf-fb-tbl th{width:80pt;padding:5pt 8pt;font-size:7pt;font-weight:700;
+    text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;background:#fafbfc;
+    border-bottom:1pt solid #dee2e8;border-right:1pt solid #dee2e8;vertical-align:top;
+    text-align:left}
+  .pdf-fb-tbl td{padding:5pt 8pt;font-size:8pt;line-height:1.5;
+    border-bottom:1pt solid #dee2e8;vertical-align:top}
+  .pdf-fb-tbl tr:last-child th,.pdf-fb-tbl tr:last-child td{border-bottom:none}
 
   /* Location box */
-  .pdf-loc{background:#f0f7ff;border:1pt solid #aed6f1;border-left:2pt solid #2471a3;
+  .pdf-loc{background:#f0f7ff;border-left:2pt solid #2471a3;
     padding:4pt 7pt;font-size:7.5pt;line-height:1.6;color:#1a5276;
     font-family:monospace;white-space:pre-wrap}
 
   /* Affected chips */
-  .pdf-chips{font-size:7.5pt;line-height:1.9}
   .pdf-chip{display:inline-block;background:#f0f3f7;border:1pt solid #dee2e8;
-    border-radius:2pt;padding:1pt 5pt;margin:1pt;font-family:monospace}
+    padding:1pt 5pt;margin:1pt 2pt;font-family:monospace;font-size:7.5pt}
 
   /* Rule table */
-  .pdf-rule-tbl{width:100%;border-collapse:collapse;font-size:7.5pt;margin-bottom:4pt}
-  .pdf-rule-tbl th{background:#f4f6f8;padding:3pt 6pt;text-align:left;
+  .pdf-rule-tbl{width:100%;border-collapse:collapse;font-size:7.5pt;margin-top:2pt}
+  .pdf-rule-tbl th{background:#f4f6f8;padding:3pt 5pt;text-align:left;
     font-size:7pt;text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;
     border:1pt solid #dee2e8;font-weight:700}
-  .pdf-rule-tbl td{padding:3pt 6pt;border:1pt solid #dee2e8;vertical-align:top}
+  .pdf-rule-tbl td{padding:3pt 5pt;border:1pt solid #dee2e8;vertical-align:top}
   .pdf-rule-tbl tr:nth-child(even) td{background:#fafbfc}
   .tag-a{color:#1e8449;font-weight:700}
   .tag-d{color:#c0392b;font-weight:700}
@@ -314,7 +309,7 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   .tag-off-p{color:#c0392b}
   .tag-on-p{color:#1e8449}
 
-  .pdf-refs{font-size:7.5pt;color:#2471a3;margin:0;padding:0;list-style:none}
+  .pdf-refs{font-size:7.5pt;color:#2471a3;margin:0;padding:0;list-style:none;line-height:1.8}
   .pdf-refs li::before{content:"→ "}
 
   footer{display:none}
@@ -399,96 +394,60 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 {% set ac = (f.affected_rules|length) if f.affected_rules else (f.affected|length) %}
 <div class="pdf-finding pdf-finding-{{ f.severity.value }}">
 
-  <!-- Header row -->
-  <div class="pdf-f-head">
-    <div class="pdf-f-head-inner">
-      <div class="pdf-f-badge-cell">
-        <span class="pdf-fbadge pfb-{{ f.severity.value }}">{{ f.severity.value }}</span>
-      </div>
-      <div class="pdf-f-title-cell">
-        <span class="pdf-f-title">{{ f.title }}</span>
-        {% if ac %}<span class="pdf-f-ac">{{ ac }} affected</span>{% endif %}
-      </div>
-      <div class="pdf-f-cat-cell">{{ f.category }}</div>
-    </div>
-  </div>
+  <!-- Header — real <table> so WeasyPrint lays it out correctly -->
+  <table class="pdf-fh-tbl"><tr>
+    <td class="pdf-fh-badge"><span class="pdf-fbadge pfb-{{ f.severity.value }}">{{ f.severity.value }}</span></td>
+    <td><span class="pdf-f-title">{{ f.title }}</span>{% if ac %}<span class="pdf-f-ac">({{ ac }} affected)</span>{% endif %}</td>
+    <td class="pdf-fh-cat">{{ f.category }}</td>
+  </tr></table>
 
-  <!-- Body rows -->
-  <div class="pdf-f-body">
-
-    <div class="pdf-f-row">
-      <div class="pdf-f-lbl">Finding</div>
-      <div class="pdf-f-val">{{ f.detail }}</div>
-    </div>
-
-    <div class="pdf-f-row">
-      <div class="pdf-f-lbl">Recommendation</div>
-      <div class="pdf-f-val">{{ f.recommendation }}</div>
-    </div>
-
+  <!-- Body — real <table> rows -->
+  <table class="pdf-fb-tbl">
+    <tr><th>Finding</th><td>{{ f.detail }}</td></tr>
+    <tr><th>Recommendation</th><td>{{ f.recommendation }}</td></tr>
     {% if f.location %}
-    <div class="pdf-f-row">
-      <div class="pdf-f-lbl">Where to fix</div>
-      <div class="pdf-f-val"><div class="pdf-loc">{{ f.location }}</div></div>
-    </div>
+    <tr><th>Where to fix</th><td><div class="pdf-loc">{{ f.location }}</div></td></tr>
     {% endif %}
-
     {% if f.affected_rules %}
-    <div class="pdf-f-row">
-      <div class="pdf-f-lbl">Affected Rules</div>
-      <div class="pdf-f-val">
+    <tr><th>Affected Rules</th>
+      <td>
         <table class="pdf-rule-tbl">
           <tr>
-            <th>#</th><th>Rule Name</th><th>Action</th>
-            <th>Source</th><th>Destination</th><th>Services</th><th>Log</th>
+            <th style="width:22pt">#</th>
+            <th>Rule Name</th>
+            <th style="width:44pt">Action</th>
+            <th>Source</th>
+            <th>Destination</th>
+            <th>Services</th>
+            <th style="width:22pt">Log</th>
           </tr>
           {% for r in f.affected_rules %}
           {% set action=r.action|lower %}{% set log=r.log_traffic|lower %}
           <tr>
             <td>{{ r.policy_index if r.policy_index else r.position if r.position else '?' }}</td>
-            <td><strong>{{ r.name or '(unnamed)' }}</strong>
-              {% if r._flagged_service %}<br><span class="tag-warn-p">⚠ {{ r._flagged_service }}</span>{% endif %}
-            </td>
-            <td>
-              {% if action in ['accept','allow'] %}<span class="tag-a">ACCEPT</span>
-              {% else %}<span class="tag-d">{{ r.action|upper }}</span>{% endif %}
-            </td>
-            <td>
-              {% for z in r.src_zones %}{{ z }} {% endfor %}→
-              {% for n in r.src_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}
-            </td>
-            <td>
-              {% for z in r.dst_zones %}{{ z }} {% endfor %}→
-              {% for n in r.dst_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}
-            </td>
+            <td><strong>{{ r.name or '(unnamed)' }}</strong>{% if r._flagged_service %} — <span class="tag-warn-p">{{ r._flagged_service }}</span>{% endif %}</td>
+            <td>{% if action in ['accept','allow'] %}<span class="tag-a">ACCEPT</span>{% else %}<span class="tag-d">{{ r.action|upper }}</span>{% endif %}</td>
+            <td>{% for z in r.src_zones %}{{ z }} {% endfor %}/ {% for n in r.src_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}</td>
+            <td>{% for z in r.dst_zones %}{{ z }} {% endfor %}/ {% for n in r.dst_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}</td>
             <td>{% for s in r.services %}<span class="{% if s|lower in ['any','all','*'] %}tag-any-p{% elif s|lower in ['telnet','ftp','tftp','rsh','snmp','snmpv1','snmpv2','rpc','nfs'] %}tag-warn-p{% endif %}">{{ s }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}</td>
-            <td>{% if log in ['disable','disabled','0','false','off'] %}<span class="tag-off-p">Off</span>
-            {% else %}<span class="tag-on-p">On</span>{% endif %}</td>
+            <td>{% if log in ['disable','disabled','0','false','off'] %}<span class="tag-off-p">Off</span>{% else %}<span class="tag-on-p">On</span>{% endif %}</td>
           </tr>
           {% endfor %}
         </table>
-      </div>
-    </div>
-
+      </td>
+    </tr>
     {% elif f.affected %}
-    <div class="pdf-f-row">
-      <div class="pdf-f-lbl">Affected ({{ f.affected|length }})</div>
-      <div class="pdf-f-val">
-        <div class="pdf-chips">{% for item in f.affected %}<span class="pdf-chip">{{ item }}</span> {% endfor %}</div>
-      </div>
-    </div>
+    <tr><th>Affected ({{ f.affected|length }})</th>
+      <td>{% for item in f.affected %}<span class="pdf-chip">{{ item }}</span>{% endfor %}</td>
+    </tr>
     {% endif %}
-
     {% if f.references %}
-    <div class="pdf-f-row">
-      <div class="pdf-f-lbl">References</div>
-      <div class="pdf-f-val">
-        <ul class="pdf-refs">{% for ref in f.references %}<li>{{ ref }}</li>{% endfor %}</ul>
-      </div>
-    </div>
+    <tr><th>References</th>
+      <td><ul class="pdf-refs">{% for ref in f.references %}<li>{{ ref }}</li>{% endfor %}</ul></td>
+    </tr>
     {% endif %}
+  </table>
 
-  </div><!-- /pdf-f-body -->
 </div><!-- /pdf-finding -->
 {% endfor %}
 {% endif %}
