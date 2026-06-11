@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Firewall Security Assessment — {{ filename }}</title>
 <style>
+/* ═══════════════════════════════════════════════════════════
+   SHARED
+═══════════════════════════════════════════════════════════ */
 :root{
   --c:#c0392b;--c-bg:#fdf0ef;
   --h:#d35400;--h-bg:#fef3ea;
@@ -12,136 +15,160 @@
   --l:#2471a3;--l-bg:#eaf4fc;
   --i:#717d7e;--i-bg:#f4f6f7;
   --pass:#1e8449;--pass-bg:#eafaf1;
-  --border:#e0e4ea;--text:#1c2833;--muted:#717d7e;--r:5px;
+  --border:#dee2e8;--text:#1c2833;--muted:#6c757d;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;background:#eaecf0;color:var(--text);line-height:1.5}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:var(--text);line-height:1.5}
 
-/* HEADER */
-header{background:linear-gradient(135deg,#17202a,#2c3e50);color:#fff;padding:18px 28px;display:flex;justify-content:space-between;align-items:flex-end}
-.hdr-left h1{font-size:1.1rem;font-weight:700;letter-spacing:.2px}
-.hdr-left .sub{font-size:0.75rem;color:#8fa8b8;margin-top:3px}
-.hdr-right{text-align:right;font-size:0.72rem;color:#8fa8b8;line-height:1.8}
-.hdr-right strong{color:#cdd9e5}
+/* ═══════════════════════════════════════════════════════════
+   WEB STYLES  (hidden in PDF)
+═══════════════════════════════════════════════════════════ */
+.web-only{display:block}
+.pdf-only{display:none}
 
-/* ACTION BAR */
-.action-bar{background:#1a252f;padding:6px 28px;display:flex;justify-content:flex-end;gap:8px}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:4px;font-size:0.75rem;font-weight:600;text-decoration:none;cursor:pointer;border:none}
+body.web{background:#e8eaed}
+
+/* Header */
+.web header{background:linear-gradient(135deg,#17202a,#2c3e50);color:#fff;
+  padding:16px 24px;display:flex;justify-content:space-between;align-items:flex-end}
+.web .hdr-l h1{font-size:1.05rem;font-weight:700}
+.web .hdr-l .sub{font-size:0.72rem;color:#8fa8b8;margin-top:2px}
+.web .hdr-r{text-align:right;font-size:0.7rem;color:#8fa8b8;line-height:1.9}
+.web .hdr-r strong{color:#cdd9e5}
+
+/* Action bar */
+.web .action-bar{background:#1a252f;padding:5px 24px;display:flex;
+  justify-content:flex-end;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;
+  border-radius:4px;font-size:0.73rem;font-weight:600;text-decoration:none;border:none;cursor:pointer}
 .btn-green{background:#1e8449;color:#fff}.btn-green:hover{background:#196f3d}
 .btn-blue{background:#1f618d;color:#fff}.btn-blue:hover{background:#1a5276}
 
-/* WRAP */
-.wrap{max-width:1040px;margin:0 auto;padding:16px}
+/* Wrap */
+.web .wrap{max-width:1020px;margin:0 auto;padding:14px 16px}
 
-/* EXECUTIVE SUMMARY */
-.exec-panel{background:#fff;border-radius:var(--r);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.exec-top{display:grid;grid-template-columns:200px 1fr;gap:0}
-.risk-block{padding:20px 22px;display:flex;flex-direction:column;justify-content:center;align-items:center;border-right:1px solid var(--border)}
-.risk-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px}
-.risk-rating{font-size:1.9rem;font-weight:800;line-height:1}
-.risk-rating.Critical{color:var(--c)}
-.risk-rating.High{color:var(--h)}
-.risk-rating.Medium{color:var(--m)}
-.risk-rating.Low{color:var(--l)}
-.risk-rating.Passed{color:var(--pass)}
-.risk-score{font-size:0.72rem;color:var(--muted);margin-top:4px}
-.score-bar-wrap{width:100%;margin-top:8px}
-.score-track{height:5px;background:#ecf0f1;border-radius:3px;overflow:hidden}
-.score-fill{height:100%;border-radius:3px;transition:width .4s}
-.score-fill.Critical{background:var(--c)}
-.score-fill.High{background:var(--h)}
-.score-fill.Medium{background:var(--m)}
-.score-fill.Low{background:var(--l)}
-.score-fill.Passed{background:var(--pass)}
+/* Exec panel */
+.web .exec-panel{background:#fff;border-radius:6px;margin-bottom:10px;
+  overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.web .exec-top{display:flex;gap:0}
+.web .risk-col{width:190px;flex-shrink:0;padding:18px 16px;border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;text-align:center}
+.risk-lbl{font-size:0.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:5px}
+.risk-val{font-size:1.9rem;font-weight:800;line-height:1}
+.risk-val.Critical{color:var(--c)}.risk-val.High{color:var(--h)}
+.risk-val.Medium{color:var(--m)}.risk-val.Low{color:var(--l)}.risk-val.Passed{color:var(--pass)}
+.score-sub{font-size:0.68rem;color:var(--muted);margin-top:4px}
+.sbar{width:100%;height:5px;background:#ecf0f1;border-radius:3px;overflow:hidden;margin-top:7px}
+.sbar-fill{height:100%;border-radius:3px}
+.sbar-fill.Critical{background:var(--c)}.sbar-fill.High{background:var(--h)}
+.sbar-fill.Medium{background:var(--m)}.sbar-fill.Low{background:var(--l)}
+.sbar-fill.Passed{background:var(--pass)}
+.split-counts{width:100%;margin-top:10px;font-size:0.68rem;color:var(--muted);
+  display:flex;flex-direction:column;gap:3px}
+.split-row{display:flex;justify-content:space-between}
 
-.exec-right{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
-.posture-text{font-size:0.85rem;line-height:1.6;color:var(--text)}
-.immediate-title{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
-.immediate-list{list-style:none;display:flex;flex-direction:column;gap:3px}
-.immediate-list li{display:flex;align-items:baseline;gap:7px;font-size:0.8rem}
-.immediate-list li::before{content:"▸";color:var(--c);flex-shrink:0;font-size:0.7rem}
+.web .posture-col{flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+.posture-text{font-size:0.85rem;line-height:1.65}
+.immed-lbl{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.immed-list{list-style:none}
+.immed-list li{font-size:0.8rem;padding:2px 0;display:flex;align-items:baseline;gap:7px}
+.immed-list li::before{content:"▸";color:var(--c);font-size:0.68rem;flex-shrink:0}
 
-/* STATS ROW */
-.stats-row{display:flex;gap:8px;margin-bottom:12px}
-.stat-card{flex:1;background:#fff;border-radius:var(--r);padding:8px 10px;text-align:center;border-top:3px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.stat-card .n{font-size:1.5rem;font-weight:800;line-height:1}
-.stat-card .l{font-size:0.63rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px}
+/* Score row */
+.web .score-row{display:flex;gap:8px;margin-bottom:10px}
+.sc{flex:1;background:#fff;border-radius:5px;padding:8px 6px;text-align:center;
+  border-top:3px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.sc .n{font-size:1.5rem;font-weight:800;line-height:1}
+.sc .l{font-size:0.62rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px}
 .sc-c{border-color:var(--c)}.sc-c .n{color:var(--c)}
 .sc-h{border-color:var(--h)}.sc-h .n{color:var(--h)}
 .sc-m{border-color:var(--m)}.sc-m .n{color:var(--m)}
 .sc-l{border-color:var(--l)}.sc-l .n{color:var(--l)}
 .sc-i{border-color:var(--i)}.sc-i .n{color:var(--i)}
 
-/* INVENTORY */
-.inventory{background:#fff;border-radius:var(--r);padding:7px 14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;flex-wrap:wrap;align-items:center;gap:5px}
-.inv-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-right:4px;font-weight:700}
-.inv-tag{background:#f0f3f7;border-radius:3px;padding:2px 7px;font-size:0.72rem}
+/* Inventory */
+.web .inv{background:#fff;border-radius:5px;padding:6px 12px;margin-bottom:10px;
+  box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.inv-lbl{font-size:0.62rem;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);font-weight:700;margin-right:4px}
+.inv-tag{background:#f0f3f7;border-radius:3px;padding:2px 7px;font-size:0.7rem}
 .inv-tag span{font-weight:700;color:#1f618d}
 
-/* SECTION DIVIDER */
-.sev-divider{display:flex;align-items:center;gap:8px;margin:10px 0 5px}
-.sev-divider-badge{padding:2px 10px;border-radius:3px;font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
-.sev-divider-line{flex:1;height:1px;background:var(--border)}
-.sev-divider-count{font-size:0.68rem;color:var(--muted);font-weight:600}
-.db-Critical{background:var(--c-bg);color:var(--c)}
-.db-High    {background:var(--h-bg);color:var(--h)}
-.db-Medium  {background:var(--m-bg);color:var(--m)}
-.db-Low     {background:var(--l-bg);color:var(--l)}
-.db-Info    {background:var(--i-bg);color:var(--i)}
+/* Section divider */
+.sev-div{display:flex;align-items:center;gap:8px;margin:10px 0 4px}
+.sev-badge{padding:2px 9px;border-radius:3px;font-size:0.62rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.5px}
+.sev-line{flex:1;height:1px;background:var(--border)}
+.sev-ct{font-size:0.65rem;color:var(--muted);font-weight:600}
+.sb-Critical{background:var(--c-bg);color:var(--c)}
+.sb-High    {background:var(--h-bg);color:var(--h)}
+.sb-Medium  {background:var(--m-bg);color:var(--m)}
+.sb-Low     {background:var(--l-bg);color:var(--l)}
+.sb-Info    {background:var(--i-bg);color:var(--i)}
 
-/* FINDING */
-.finding{background:#fff;border-radius:var(--r);margin-bottom:4px;border-left:3px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden}
+/* Finding card */
+.finding{background:#fff;border-radius:5px;margin-bottom:4px;
+  border-left:3px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden}
 .finding-Critical{border-left-color:var(--c)}
 .finding-High    {border-left-color:var(--h)}
 .finding-Medium  {border-left-color:var(--m)}
 .finding-Low     {border-left-color:var(--l)}
 .finding-Info    {border-left-color:var(--i)}
-
-.f-header{display:flex;align-items:center;padding:7px 12px;cursor:pointer;user-select:none;gap:7px}
-.f-header:hover{background:#f8f9fa}
-.f-badge{padding:2px 7px;border-radius:3px;font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;min-width:58px;text-align:center;flex-shrink:0}
+.f-hdr{display:flex;align-items:center;padding:7px 12px;cursor:pointer;
+  user-select:none;gap:7px}
+.f-hdr:hover{background:#f8f9fa}
+.fbadge{padding:2px 7px;border-radius:3px;font-size:0.6rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.4px;min-width:56px;text-align:center;flex-shrink:0}
 .fb-Critical{background:var(--c-bg);color:var(--c)}
 .fb-High    {background:var(--h-bg);color:var(--h)}
 .fb-Medium  {background:var(--m-bg);color:var(--m)}
 .fb-Low     {background:var(--l-bg);color:var(--l)}
 .fb-Info    {background:var(--i-bg);color:var(--i)}
-.f-title{font-weight:600;font-size:0.83rem;flex:1}
-.f-cat{font-size:0.68rem;color:var(--muted);white-space:nowrap}
-.f-count{font-size:0.68rem;background:#f0f3f7;border-radius:3px;padding:1px 6px;color:var(--muted);white-space:nowrap}
-.chevron{font-size:0.6rem;color:#ccc;transition:transform .15s;flex-shrink:0}
+.f-title{font-weight:600;font-size:0.82rem;flex:1}
+.f-cat{font-size:0.66rem;color:var(--muted);white-space:nowrap}
+.f-ac{font-size:0.66rem;background:#f0f3f7;border-radius:3px;
+  padding:1px 5px;color:var(--muted);white-space:nowrap}
+.chevron{font-size:0.58rem;color:#ccc;transition:transform .15s;flex-shrink:0}
 .finding.open .chevron{transform:rotate(180deg)}
 
-/* FINDING BODY */
+/* Finding body — two-column grid */
 .f-body{display:none;border-top:1px solid var(--border)}
 .finding.open .f-body{display:block}
-.f-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
-.f-cell{padding:8px 12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
-.f-cell:nth-child(even){border-right:none}
-.f-cell.full{grid-column:1/-1;border-right:none}
-.f-cell:last-child,.f-cell.full:last-child{border-bottom:none}
-.f-lbl{font-size:0.63rem;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:3px;font-weight:700}
-.f-val{font-size:0.8rem;line-height:1.55;color:var(--text)}
+.f-grid{display:flex;flex-wrap:wrap}
+.f-cell{padding:8px 12px;border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);width:50%}
+.f-cell.full{width:100%;border-right:none}
+.f-cell:last-child{border-bottom:none}
+.f-cell.full:last-child{border-bottom:none}
+.f-lbl{font-size:0.62rem;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--muted);margin-bottom:3px;font-weight:700}
+.f-val{font-size:0.8rem;line-height:1.55}
 
-/* LOCATION */
-.loc{background:#f0f7ff;border:1px solid #aed6f1;border-left:3px solid #2471a3;border-radius:3px;padding:6px 10px;font-family:monospace;font-size:0.75rem;white-space:pre-line;line-height:1.65;color:#1a5276}
+/* Location box */
+.loc{background:#f0f7ff;border:1px solid #aed6f1;border-left:3px solid #2471a3;
+  border-radius:3px;padding:6px 10px;font-family:monospace;font-size:0.73rem;
+  white-space:pre-line;line-height:1.65;color:#1a5276}
 
-/* RULE CARDS */
+/* Rule cards */
 .rule-cards{display:flex;flex-direction:column;gap:5px}
 .rule-card{border:1px solid var(--border);border-radius:4px;overflow:hidden;font-size:0.75rem}
-.rc-head{display:flex;align-items:center;gap:6px;background:#f4f6f8;padding:4px 9px;border-bottom:1px solid var(--border);font-weight:700}
-.rc-pos{background:#2c3e50;color:#fff;border-radius:2px;padding:1px 5px;font-size:0.65rem;white-space:nowrap}
+.rc-hd{display:flex;align-items:center;gap:6px;background:#f4f6f8;
+  padding:4px 9px;border-bottom:1px solid var(--border);font-weight:700}
+.rc-pos{background:#2c3e50;color:#fff;border-radius:2px;padding:1px 5px;
+  font-size:0.63rem;white-space:nowrap}
 .rc-name{flex:1;font-size:0.75rem}
-.rc-id{font-size:0.65rem;color:#aaa;font-family:monospace;margin-left:auto}
-.on{color:#1e8449;font-weight:700;font-size:0.68rem}
-.off{color:#c0392b;font-weight:700;font-size:0.68rem}
-.rc-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
-.rf{padding:4px 9px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
-.rf:nth-child(even){border-right:none}
-.rf.full{grid-column:1/-1;border-right:none}
+.rc-id{font-size:0.63rem;color:#aaa;font-family:monospace;margin-left:auto}
+.on{color:#1e8449;font-weight:700;font-size:0.67rem}
+.off{color:#c0392b;font-weight:700;font-size:0.67rem}
+.rc-bd{display:flex;flex-wrap:wrap}
+.rf{padding:4px 9px;border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);width:50%}
+.rf.full{width:100%;border-right:none}
 .rf:last-child,.rf.full:last-child{border-bottom:none}
-.rf-lbl{font-size:0.62rem;text-transform:uppercase;letter-spacing:.3px;color:#aaa;margin-bottom:2px}
-.rf-val{font-family:monospace;color:var(--text)}
-.tag{display:inline-block;background:#eef2f7;border-radius:2px;padding:0 4px;margin:1px;font-size:0.7rem}
+.rf-l{font-size:0.6rem;text-transform:uppercase;letter-spacing:.3px;color:#aaa;margin-bottom:2px}
+.rf-v{font-family:monospace;color:var(--text);font-size:0.73rem}
+.tag{display:inline-block;background:#eef2f7;border-radius:2px;
+  padding:0 4px;margin:1px;font-size:0.7rem}
 .tag-any{background:#fde8e8;color:#c0392b;font-weight:700}
 .tag-warn{background:#fef3e2;color:#d35400;font-weight:600}
 .tag-off{background:#fde8e8;color:#c0392b}
@@ -149,98 +176,390 @@ header{background:linear-gradient(135deg,#17202a,#2c3e50);color:#fff;padding:18p
 .act-a{color:#1e8449;font-weight:700}
 .act-d{color:#c0392b;font-weight:700}
 .flagged-row{background:#fef9f0}
-
-/* REFS */
-.ref-list{list-style:none;margin:0}
-.ref-list li{font-size:0.75rem;padding:1px 0}
+.ref-list{list-style:none}
+.ref-list li{font-size:0.74rem;padding:1px 0}
 .ref-list li::before{content:"→ ";color:#2471a3}
+.no-findings{background:#fff;border-radius:5px;padding:18px;
+  text-align:center;color:var(--muted)}
 
-/* MISC */
-.no-findings{background:#fff;border-radius:var(--r);padding:18px;text-align:center;color:var(--muted)}
-footer{text-align:center;padding:12px;font-size:0.7rem;color:#aaa}
+footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 
-@media print{
-  .action-bar{display:none}
-  body{background:#fff}
-  .f-body{display:block!important}
-  .chevron{display:none}
-  header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .finding,.exec-panel{break-inside:avoid}
-  .wrap{padding:8px}
+
+/* ═══════════════════════════════════════════════════════════
+   PDF STYLES  (WeasyPrint-safe, table-based)
+═══════════════════════════════════════════════════════════ */
+@media print {
+  .web-only{display:none!important}
+  .pdf-only{display:block!important}
+
+  @page{
+    size:A4;
+    margin:16mm 14mm 14mm 14mm;
+    @bottom-center{
+      content:"Firewall Security Assessment  ·  AIVAPT  ·  Page " counter(page) " of " counter(pages);
+      font-size:8pt;color:#999;font-family:Arial,sans-serif;
+    }
+  }
+
+  body{font-family:Arial,sans-serif;font-size:9.5pt;color:#1c2833;background:#fff;line-height:1.45}
+
+  /* Cover strip */
+  .pdf-cover{background:#1a252f;color:#fff;padding:14pt 18pt;margin-bottom:12pt}
+  .pdf-cover h1{font-size:14pt;font-weight:700;margin-bottom:3pt}
+  .pdf-cover .sub{font-size:8.5pt;color:#8fa8b8;margin-bottom:6pt}
+  .pdf-meta-table{width:100%;border-collapse:collapse;font-size:8pt;color:#8fa8b8}
+  .pdf-meta-table td{padding:1pt 0}
+  .pdf-meta-table td:last-child{text-align:right;color:#cdd9e5}
+
+  /* Exec summary */
+  .pdf-exec-table{width:100%;border-collapse:collapse;margin-bottom:10pt;
+    border:1pt solid #dee2e8;border-radius:4pt}
+  .pdf-exec-table td,.pdf-exec-table th{padding:5pt 8pt;vertical-align:top;
+    border-bottom:1pt solid #dee2e8;font-size:8.5pt}
+  .pdf-exec-table th{background:#f4f6f8;font-weight:700;font-size:7.5pt;
+    text-transform:uppercase;letter-spacing:.4pt;color:#6c757d;width:120pt}
+  .pdf-exec-table tr:last-child td,.pdf-exec-table tr:last-child th{border-bottom:none}
+
+  /* Risk badge */
+  .pdf-risk-Critical{color:#c0392b;font-weight:700;font-size:13pt}
+  .pdf-risk-High{color:#d35400;font-weight:700;font-size:13pt}
+  .pdf-risk-Medium{color:#b7950b;font-weight:700;font-size:13pt}
+  .pdf-risk-Low{color:#2471a3;font-weight:700;font-size:13pt}
+  .pdf-risk-Passed{color:#1e8449;font-weight:700;font-size:13pt}
+
+  /* Count grid */
+  .pdf-counts{width:100%;border-collapse:collapse;margin-bottom:10pt}
+  .pdf-counts td{border:1pt solid #dee2e8;padding:5pt 8pt;text-align:center;width:20%}
+  .pdf-counts .cn{font-size:16pt;font-weight:800;line-height:1;display:block}
+  .pdf-counts .cl{font-size:7pt;text-transform:uppercase;letter-spacing:.4pt;
+    color:#6c757d;display:block;margin-top:2pt}
+  .cn-c{color:#c0392b}.cn-h{color:#d35400}.cn-m{color:#b7950b}
+  .cn-l{color:#2471a3}.cn-i{color:#717d7e}
+
+  /* Inventory */
+  .pdf-inv{font-size:7.5pt;color:#6c757d;margin-bottom:10pt;line-height:1.8}
+  .pdf-inv strong{color:#1c2833}
+
+  /* Section heading */
+  .pdf-sev-head{margin:10pt 0 4pt;page-break-after:avoid}
+  .pdf-sev-head span{display:inline-block;padding:2pt 8pt;border-radius:2pt;
+    font-size:7pt;font-weight:800;text-transform:uppercase;letter-spacing:.5pt}
+  .psh-Critical{background:#fdf0ef;color:#c0392b}
+  .psh-High    {background:#fef3ea;color:#d35400}
+  .psh-Medium  {background:#fefce7;color:#b7950b}
+  .psh-Low     {background:#eaf4fc;color:#2471a3}
+  .psh-Info    {background:#f4f6f7;color:#717d7e}
+  .pdf-sev-head hr{border:none;border-top:1pt solid #dee2e8;margin-top:3pt}
+
+  /* Finding block */
+  .pdf-finding{border:1pt solid #dee2e8;border-left:3pt solid #dee2e8;
+    margin-bottom:6pt;page-break-inside:avoid;border-radius:2pt;overflow:hidden}
+  .pdf-finding-Critical{border-left-color:#c0392b}
+  .pdf-finding-High    {border-left-color:#d35400}
+  .pdf-finding-Medium  {border-left-color:#b7950b}
+  .pdf-finding-Low     {border-left-color:#2471a3}
+  .pdf-finding-Info    {border-left-color:#717d7e}
+
+  .pdf-f-head{display:table;width:100%;background:#f8f9fa;
+    padding:5pt 8pt;border-bottom:1pt solid #dee2e8}
+  .pdf-f-head-inner{display:table-row}
+  .pdf-f-badge-cell{display:table-cell;vertical-align:middle;width:55pt}
+  .pdf-f-title-cell{display:table-cell;vertical-align:middle;padding-left:6pt}
+  .pdf-f-cat-cell{display:table-cell;vertical-align:middle;
+    text-align:right;width:90pt;font-size:7pt;color:#6c757d}
+
+  .pdf-fbadge{display:inline-block;padding:2pt 6pt;border-radius:2pt;
+    font-size:6.5pt;font-weight:800;text-transform:uppercase;letter-spacing:.4pt}
+  .pfb-Critical{background:#fdf0ef;color:#c0392b}
+  .pfb-High    {background:#fef3ea;color:#d35400}
+  .pfb-Medium  {background:#fefce7;color:#b7950b}
+  .pfb-Low     {background:#eaf4fc;color:#2471a3}
+  .pfb-Info    {background:#f4f6f7;color:#717d7e}
+
+  .pdf-f-title{font-weight:700;font-size:8.5pt}
+  .pdf-f-ac{font-size:7pt;color:#6c757d;margin-left:5pt}
+
+  .pdf-f-body{display:table;width:100%;border-collapse:collapse}
+  .pdf-f-row{display:table-row}
+  .pdf-f-lbl{display:table-cell;width:75pt;padding:5pt 8pt;
+    font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.3pt;
+    color:#6c757d;background:#fafbfc;border-bottom:1pt solid #dee2e8;
+    border-right:1pt solid #dee2e8;vertical-align:top}
+  .pdf-f-val{display:table-cell;padding:5pt 8pt;font-size:8pt;
+    line-height:1.5;border-bottom:1pt solid #dee2e8;vertical-align:top}
+  .pdf-f-row:last-child .pdf-f-lbl,
+  .pdf-f-row:last-child .pdf-f-val{border-bottom:none}
+
+  /* Location box */
+  .pdf-loc{background:#f0f7ff;border:1pt solid #aed6f1;border-left:2pt solid #2471a3;
+    padding:4pt 7pt;font-size:7.5pt;line-height:1.6;color:#1a5276;
+    font-family:monospace;white-space:pre-wrap}
+
+  /* Affected chips */
+  .pdf-chips{font-size:7.5pt;line-height:1.9}
+  .pdf-chip{display:inline-block;background:#f0f3f7;border:1pt solid #dee2e8;
+    border-radius:2pt;padding:1pt 5pt;margin:1pt;font-family:monospace}
+
+  /* Rule table */
+  .pdf-rule-tbl{width:100%;border-collapse:collapse;font-size:7.5pt;margin-bottom:4pt}
+  .pdf-rule-tbl th{background:#f4f6f8;padding:3pt 6pt;text-align:left;
+    font-size:7pt;text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;
+    border:1pt solid #dee2e8;font-weight:700}
+  .pdf-rule-tbl td{padding:3pt 6pt;border:1pt solid #dee2e8;vertical-align:top}
+  .pdf-rule-tbl tr:nth-child(even) td{background:#fafbfc}
+  .tag-a{color:#1e8449;font-weight:700}
+  .tag-d{color:#c0392b;font-weight:700}
+  .tag-any-p{color:#c0392b;font-weight:700}
+  .tag-warn-p{color:#d35400;font-weight:600}
+  .tag-off-p{color:#c0392b}
+  .tag-on-p{color:#1e8449}
+
+  .pdf-refs{font-size:7.5pt;color:#2471a3;margin:0;padding:0;list-style:none}
+  .pdf-refs li::before{content:"→ "}
+
+  footer{display:none}
 }
 </style>
 </head>
+
+{% if pdf_mode %}
+{# ══════════════════════════════════════════════════════════════
+   PDF BODY  — WeasyPrint table-based layout
+══════════════════════════════════════════════════════════════ #}
 <body>
 
-<header>
-  <div class="hdr-left">
-    <h1>Firewall Security Assessment</h1>
-    <div class="sub">Sophos XG / SFOS — Policy Audit Report</div>
+<!-- Cover strip -->
+<div class="pdf-cover">
+  <h1>Firewall Security Assessment</h1>
+  <div class="sub">Sophos XG / SFOS — Policy &amp; Configuration Audit Report</div>
+  <table class="pdf-meta-table">
+    <tr><td>Document</td><td>{{ filename }}</td></tr>
+    <tr><td>Generated</td><td>{{ generated }}</td></tr>
+    <tr><td>Classification</td><td>CONFIDENTIAL</td></tr>
+  </table>
+</div>
+
+<!-- Finding counts -->
+<table class="pdf-counts">
+  <tr>
+    <td><span class="cn cn-c">{{ counts.Critical }}</span><span class="cl">Critical</span></td>
+    <td><span class="cn cn-h">{{ counts.High }}</span><span class="cl">High</span></td>
+    <td><span class="cn cn-m">{{ counts.Medium }}</span><span class="cl">Medium</span></td>
+    <td><span class="cn cn-l">{{ counts.Low }}</span><span class="cl">Low</span></td>
+    <td><span class="cn cn-i">{{ counts.Info }}</span><span class="cl">Info</span></td>
+  </tr>
+</table>
+
+<!-- Executive summary -->
+<table class="pdf-exec-table">
+  <tr>
+    <th>Overall Risk</th>
+    <td><span class="pdf-risk-{{ exec.rating }}">{{ exec.rating }}</span>
+        &nbsp;&nbsp;<span style="font-size:8pt;color:#6c757d">Score {{ exec.score }}/100
+        &nbsp;·&nbsp; Policy: {{ exec.policy_total }} findings
+        &nbsp;·&nbsp; Config: {{ exec.config_total }} findings</span></td>
+  </tr>
+  <tr>
+    <th>Posture</th>
+    <td>{{ exec.posture }}</td>
+  </tr>
+  {% if exec.immediate %}
+  <tr>
+    <th>Immediate Actions</th>
+    <td>
+      <ul style="margin:0;padding-left:12pt;font-size:8pt;line-height:1.8">
+        {% for item in exec.immediate %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+    </td>
+  </tr>
+  {% endif %}
+  <tr>
+    <th>Scope</th>
+    <td style="font-size:7.5pt;color:#6c757d">
+      FW Rules: <strong>{{ stats.firewall_rules }}</strong> &nbsp;·&nbsp;
+      NAT: <strong>{{ stats.nat_rules }}</strong> &nbsp;·&nbsp;
+      IPSec: <strong>{{ stats.vpn_ipsec }}</strong> &nbsp;·&nbsp;
+      SSL VPN: <strong>{{ stats.vpn_ssl }}</strong> &nbsp;·&nbsp;
+      Syslog: <strong>{{ stats.syslog_servers }}</strong> &nbsp;·&nbsp;
+      Certs: <strong>{{ stats.certificates }}</strong>
+    </td>
+  </tr>
+</table>
+
+<!-- Findings -->
+{% for severity in ['Critical','High','Medium','Low','Info'] %}
+{% set sev_findings = findings | selectattr('severity.value','equalto',severity) | list %}
+{% if sev_findings %}
+<div class="pdf-sev-head">
+  <span class="psh-{{ severity }}">{{ severity }} — {{ sev_findings|length }} finding{{ 's' if sev_findings|length != 1 }}</span>
+  <hr>
+</div>
+
+{% for f in sev_findings %}
+{% set ac = (f.affected_rules|length) if f.affected_rules else (f.affected|length) %}
+<div class="pdf-finding pdf-finding-{{ f.severity.value }}">
+
+  <!-- Header row -->
+  <div class="pdf-f-head">
+    <div class="pdf-f-head-inner">
+      <div class="pdf-f-badge-cell">
+        <span class="pdf-fbadge pfb-{{ f.severity.value }}">{{ f.severity.value }}</span>
+      </div>
+      <div class="pdf-f-title-cell">
+        <span class="pdf-f-title">{{ f.title }}</span>
+        {% if ac %}<span class="pdf-f-ac">{{ ac }} affected</span>{% endif %}
+      </div>
+      <div class="pdf-f-cat-cell">{{ f.category }}</div>
+    </div>
   </div>
-  <div class="hdr-right">
-    <div>Document: <strong>{{ filename }}</strong></div>
+
+  <!-- Body rows -->
+  <div class="pdf-f-body">
+
+    <div class="pdf-f-row">
+      <div class="pdf-f-lbl">Finding</div>
+      <div class="pdf-f-val">{{ f.detail }}</div>
+    </div>
+
+    <div class="pdf-f-row">
+      <div class="pdf-f-lbl">Recommendation</div>
+      <div class="pdf-f-val">{{ f.recommendation }}</div>
+    </div>
+
+    {% if f.location %}
+    <div class="pdf-f-row">
+      <div class="pdf-f-lbl">Where to fix</div>
+      <div class="pdf-f-val"><div class="pdf-loc">{{ f.location }}</div></div>
+    </div>
+    {% endif %}
+
+    {% if f.affected_rules %}
+    <div class="pdf-f-row">
+      <div class="pdf-f-lbl">Affected Rules</div>
+      <div class="pdf-f-val">
+        <table class="pdf-rule-tbl">
+          <tr>
+            <th>#</th><th>Rule Name</th><th>Action</th>
+            <th>Source</th><th>Destination</th><th>Services</th><th>Log</th>
+          </tr>
+          {% for r in f.affected_rules %}
+          {% set action=r.action|lower %}{% set log=r.log_traffic|lower %}
+          <tr>
+            <td>{{ r.policy_index if r.policy_index else r.position if r.position else '?' }}</td>
+            <td><strong>{{ r.name or '(unnamed)' }}</strong>
+              {% if r._flagged_service %}<br><span class="tag-warn-p">⚠ {{ r._flagged_service }}</span>{% endif %}
+            </td>
+            <td>
+              {% if action in ['accept','allow'] %}<span class="tag-a">ACCEPT</span>
+              {% else %}<span class="tag-d">{{ r.action|upper }}</span>{% endif %}
+            </td>
+            <td>
+              {% for z in r.src_zones %}{{ z }} {% endfor %}→
+              {% for n in r.src_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}
+            </td>
+            <td>
+              {% for z in r.dst_zones %}{{ z }} {% endfor %}→
+              {% for n in r.dst_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}
+            </td>
+            <td>{% for s in r.services %}<span class="{% if s|lower in ['any','all','*'] %}tag-any-p{% elif s|lower in ['telnet','ftp','tftp','rsh','snmp','snmpv1','snmpv2','rpc','nfs'] %}tag-warn-p{% endif %}">{{ s }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}</td>
+            <td>{% if log in ['disable','disabled','0','false','off'] %}<span class="tag-off-p">Off</span>
+            {% else %}<span class="tag-on-p">On</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+
+    {% elif f.affected %}
+    <div class="pdf-f-row">
+      <div class="pdf-f-lbl">Affected ({{ f.affected|length }})</div>
+      <div class="pdf-f-val">
+        <div class="pdf-chips">{% for item in f.affected %}<span class="pdf-chip">{{ item }}</span> {% endfor %}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if f.references %}
+    <div class="pdf-f-row">
+      <div class="pdf-f-lbl">References</div>
+      <div class="pdf-f-val">
+        <ul class="pdf-refs">{% for ref in f.references %}<li>{{ ref }}</li>{% endfor %}</ul>
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /pdf-f-body -->
+</div><!-- /pdf-finding -->
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+</body>
+
+{% else %}
+{# ══════════════════════════════════════════════════════════════
+   WEB BODY  — Interactive browser view
+══════════════════════════════════════════════════════════════ #}
+<body class="web">
+
+<header>
+  <div class="hdr-l">
+    <h1>Firewall Security Assessment</h1>
+    <div class="sub">Sophos XG / SFOS — Policy &amp; Configuration Audit</div>
+  </div>
+  <div class="hdr-r">
+    <div>File: <strong>{{ filename }}</strong></div>
     <div>Generated: <strong>{{ generated }}</strong></div>
     <div>Classification: <strong>CONFIDENTIAL</strong></div>
   </div>
 </header>
 
-{% if not pdf_mode %}
-<div class="action-bar">
+<div class="action-bar web-only">
   <a class="btn btn-green" href="/report/{{ token }}/pdf">⬇ Export PDF</a>
   <a class="btn btn-blue"  href="/">↩ New Analysis</a>
 </div>
-{% endif %}
 
 <div class="wrap">
 
-  <!-- Executive Summary -->
+  <!-- Executive summary -->
   <div class="exec-panel">
     <div class="exec-top">
-      <div class="risk-block">
-        <div class="risk-label">Overall Risk</div>
-        <div class="risk-rating {{ exec.rating }}">{{ exec.rating }}</div>
-        <div class="risk-score">Risk score {{ exec.score }}/100</div>
-        <div class="score-bar-wrap">
-          <div class="score-track">
-            <div class="score-fill {{ exec.rating }}" style="width:{{ exec.score }}%"></div>
-          </div>
-        </div>
-        <div style="margin-top:10px;width:100%">
-          <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted);margin-bottom:4px">
-            <span>Policy Audit</span><span>{{ exec.policy_total }} findings</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted)">
-            <span>Config Audit</span><span>{{ exec.config_total }} findings</span>
-          </div>
+      <div class="risk-col">
+        <div class="risk-lbl">Overall Risk</div>
+        <div class="risk-val {{ exec.rating }}">{{ exec.rating }}</div>
+        <div class="score-sub">Score {{ exec.score }}/100</div>
+        <div class="sbar"><div class="sbar-fill {{ exec.rating }}" style="width:{{ exec.score }}%"></div></div>
+        <div class="split-counts">
+          <div class="split-row"><span>Policy</span><span>{{ exec.policy_total }} findings</span></div>
+          <div class="split-row"><span>Config</span><span>{{ exec.config_total }} findings</span></div>
         </div>
       </div>
-      <div class="exec-right">
+      <div class="posture-col">
         <div class="posture-text">{{ exec.posture }}</div>
         {% if exec.immediate %}
         <div>
-          <div class="immediate-title">Immediate Actions Required</div>
-          <ul class="immediate-list">
-            {% for item in exec.immediate %}<li>{{ item }}</li>{% endfor %}
-          </ul>
+          <div class="immed-lbl">Immediate Actions Required</div>
+          <ul class="immed-list">{% for item in exec.immediate %}<li>{{ item }}</li>{% endfor %}</ul>
         </div>
         {% endif %}
       </div>
     </div>
   </div>
 
-  <!-- Finding counts + inventory -->
-  <div class="stats-row">
-    <div class="stat-card sc-c"><div class="n">{{ counts.Critical }}</div><div class="l">Critical</div></div>
-    <div class="stat-card sc-h"><div class="n">{{ counts.High }}</div><div class="l">High</div></div>
-    <div class="stat-card sc-m"><div class="n">{{ counts.Medium }}</div><div class="l">Medium</div></div>
-    <div class="stat-card sc-l"><div class="n">{{ counts.Low }}</div><div class="l">Low</div></div>
-    <div class="stat-card sc-i"><div class="n">{{ counts.Info }}</div><div class="l">Info</div></div>
+  <!-- Score row -->
+  <div class="score-row">
+    <div class="sc sc-c"><div class="n">{{ counts.Critical }}</div><div class="l">Critical</div></div>
+    <div class="sc sc-h"><div class="n">{{ counts.High }}</div><div class="l">High</div></div>
+    <div class="sc sc-m"><div class="n">{{ counts.Medium }}</div><div class="l">Medium</div></div>
+    <div class="sc sc-l"><div class="n">{{ counts.Low }}</div><div class="l">Low</div></div>
+    <div class="sc sc-i"><div class="n">{{ counts.Info }}</div><div class="l">Info</div></div>
   </div>
 
-  <div class="inventory">
-    <span class="inv-label">Scope</span>
+  <!-- Inventory -->
+  <div class="inv">
+    <span class="inv-lbl">Scope</span>
     <span class="inv-tag">FW Rules <span>{{ stats.firewall_rules }}</span></span>
-    <span class="inv-tag">NAT Rules <span>{{ stats.nat_rules }}</span></span>
+    <span class="inv-tag">NAT <span>{{ stats.nat_rules }}</span></span>
     <span class="inv-tag">IPSec <span>{{ stats.vpn_ipsec }}</span></span>
     <span class="inv-tag">SSL VPN <span>{{ stats.vpn_ssl }}</span></span>
     <span class="inv-tag">Syslog <span>{{ stats.syslog_servers }}</span></span>
@@ -252,19 +571,19 @@ footer{text-align:center;padding:12px;font-size:0.7rem;color:#aaa}
   {% for severity in ['Critical','High','Medium','Low','Info'] %}
   {% set sev_findings = findings | selectattr('severity.value','equalto',severity) | list %}
   {% if sev_findings %}
-  <div class="sev-divider">
-    <span class="sev-divider-badge db-{{ severity }}">{{ severity }}</span>
-    <div class="sev-divider-line"></div>
-    <span class="sev-divider-count">{{ sev_findings|length }} finding{{ 's' if sev_findings|length != 1 }}</span>
+  <div class="sev-div">
+    <span class="sev-badge sb-{{ severity }}">{{ severity }}</span>
+    <div class="sev-line"></div>
+    <span class="sev-ct">{{ sev_findings|length }} finding{{ 's' if sev_findings|length != 1 }}</span>
   </div>
 
   {% for f in sev_findings %}
+  {% set ac = (f.affected_rules|length) if f.affected_rules else (f.affected|length) %}
   <div class="finding finding-{{ f.severity.value }}" onclick="this.classList.toggle('open')">
-    <div class="f-header">
-      <span class="f-badge fb-{{ f.severity.value }}">{{ f.severity.value }}</span>
+    <div class="f-hdr">
+      <span class="fbadge fb-{{ f.severity.value }}">{{ f.severity.value }}</span>
       <span class="f-title">{{ f.title }}</span>
-      {% set ac = (f.affected_rules|length) if f.affected_rules else (f.affected|length) %}
-      {% if ac %}<span class="f-count">{{ ac }} affected</span>{% endif %}
+      {% if ac %}<span class="f-ac">{{ ac }} affected</span>{% endif %}
       <span class="f-cat">{{ f.category }}</span>
       <span class="chevron">▼</span>
     </div>
@@ -294,52 +613,36 @@ footer{text-align:center;padding:12px;font-size:0.7rem;color:#aaa}
             {% for r in f.affected_rules %}
             {% set action=r.action|lower %}{% set log=r.log_traffic|lower %}{% set status=r.status|lower %}
             <div class="rule-card">
-              <div class="rc-head">
+              <div class="rc-hd">
                 <span class="rc-pos">#{{ r.policy_index if r.policy_index else r.position if r.position else '?' }}</span>
                 <span class="rc-name">{{ r.name or '(unnamed)' }}</span>
                 {% if status in ['disable','disabled','0','false'] %}<span class="off">● DISABLED</span>
                 {% else %}<span class="on">● ENABLED</span>{% endif %}
                 {% if r.id %}<span class="rc-id">ID: {{ r.id }}</span>{% endif %}
               </div>
-              <div class="rc-body">
+              <div class="rc-bd">
                 <div class="rf">
-                  <div class="rf-lbl">Action</div>
-                  <div class="rf-val">
-                    {% if action in ['accept','allow'] %}<span class="act-a">▶ {{ r.action|upper }}</span>
-                    {% else %}<span class="act-d">✖ {{ r.action|upper }}</span>{% endif %}
-                  </div>
+                  <div class="rf-l">Action</div>
+                  <div class="rf-v">{% if action in ['accept','allow'] %}<span class="act-a">▶ {{ r.action|upper }}</span>{% else %}<span class="act-d">✖ {{ r.action|upper }}</span>{% endif %}</div>
                 </div>
                 <div class="rf">
-                  <div class="rf-lbl">Log Traffic</div>
-                  <div class="rf-val">
-                    {% if log in ['disable','disabled','0','false','off'] %}<span class="tag tag-off">✖ Off</span>
-                    {% else %}<span class="tag tag-on">✔ On</span>{% endif %}
-                  </div>
+                  <div class="rf-l">Log</div>
+                  <div class="rf-v">{% if log in ['disable','disabled','0','false','off'] %}<span class="tag tag-off">✖ Off</span>{% else %}<span class="tag tag-on">✔ On</span>{% endif %}</div>
                 </div>
                 <div class="rf">
-                  <div class="rf-lbl">Source Zone → Network</div>
-                  <div class="rf-val">
-                    {% for z in r.src_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}
-                    &rarr;
-                    {% for n in r.src_networks %}<span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}
-                  </div>
+                  <div class="rf-l">Source Zone → Network</div>
+                  <div class="rf-v">{% for z in r.src_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %} → {% for n in r.src_networks %}<span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}</div>
                 </div>
                 <div class="rf">
-                  <div class="rf-lbl">Destination Zone → Network</div>
-                  <div class="rf-val">
-                    {% for z in r.dst_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}
-                    &rarr;
-                    {% for n in r.dst_networks %}<span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}
-                  </div>
+                  <div class="rf-l">Destination Zone → Network</div>
+                  <div class="rf-v">{% for z in r.dst_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %} → {% for n in r.dst_networks %}<span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}</div>
                 </div>
                 <div class="rf full">
-                  <div class="rf-lbl">Services</div>
-                  <div class="rf-val">
-                    {% for s in r.services %}<span class="tag {% if s|lower in ['any','all','*'] %}tag-any{% elif s|lower in ['telnet','ftp','tftp','rsh','snmp','snmpv1','snmpv2','rpc','nfs'] %}tag-warn{% endif %}">{{ s }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}
-                  </div>
+                  <div class="rf-l">Services</div>
+                  <div class="rf-v">{% for s in r.services %}<span class="tag {% if s|lower in ['any','all','*'] %}tag-any{% elif s|lower in ['telnet','ftp','tftp','rsh','snmp','snmpv1','snmpv2','rpc','nfs'] %}tag-warn{% endif %}">{{ s }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}</div>
                 </div>
-                {% if r.description %}<div class="rf full"><div class="rf-lbl">Note</div><div class="rf-val">{{ r.description }}</div></div>{% endif %}
-                {% if r._flagged_service %}<div class="rf full flagged-row"><div class="rf-lbl">⚠ Flagged</div><div class="rf-val"><span class="tag tag-warn">{{ r._flagged_service }}</span></div></div>{% endif %}
+                {% if r.description %}<div class="rf full"><div class="rf-l">Note</div><div class="rf-v">{{ r.description }}</div></div>{% endif %}
+                {% if r._flagged_service %}<div class="rf full flagged-row"><div class="rf-l">⚠ Flagged</div><div class="rf-v"><span class="tag tag-warn">{{ r._flagged_service }}</span></div></div>{% endif %}
               </div>
             </div>
             {% endfor %}
@@ -370,15 +673,15 @@ footer{text-align:center;padding:12px;font-size:0.7rem;color:#aaa}
   {% endfor %}
 
   {% if not findings %}
-  <div class="no-findings">No findings generated. Verify the file is a full Sophos XG/SFOS configuration backup.</div>
+  <div class="no-findings">No findings generated. Verify the file is a valid Sophos XG/SFOS configuration backup.</div>
   {% endif %}
 
 </div>
-
 <footer>Firewall Security Assessment &nbsp;·&nbsp; AIVAPT &nbsp;·&nbsp; Authorised use only &nbsp;·&nbsp; {{ generated }}</footer>
 
 <script>
 document.querySelectorAll('.finding-Critical,.finding-High').forEach(e=>e.classList.add('open'));
 </script>
 </body>
+{% endif %}
 </html>
