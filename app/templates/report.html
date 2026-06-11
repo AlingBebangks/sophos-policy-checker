@@ -205,6 +205,14 @@ footer{text-align:center;padding:12px;font-size:0.7rem;color:#aaa}
             <div class="score-fill {{ exec.rating }}" style="width:{{ exec.score }}%"></div>
           </div>
         </div>
+        <div style="margin-top:10px;width:100%">
+          <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted);margin-bottom:4px">
+            <span>Policy Audit</span><span>{{ exec.policy_total }} findings</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted)">
+            <span>Config Audit</span><span>{{ exec.config_total }} findings</span>
+          </div>
+        </div>
       </div>
       <div class="exec-right">
         <div class="posture-text">{{ exec.posture }}</div>

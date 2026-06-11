@@ -46,27 +46,42 @@ def _exec_summary(findings: list, counts: dict) -> dict:
     score  = _risk_score(counts)
 
     posture_map = {
-        "Critical": "The firewall configuration presents immediate, exploitable risks. Urgent remediation is required before this device is considered production-safe.",
-        "High":     "The configuration contains serious weaknesses that significantly increase exposure. Remediation should be prioritised within the current sprint or change cycle.",
+        "Critical": "The firewall presents immediate, exploitable risks. Urgent remediation is required before this device is considered production-safe.",
+        "High":     "The configuration contains serious weaknesses that significantly increase exposure. Remediation should be prioritised within the current change cycle.",
         "Medium":   "The configuration meets a basic security baseline but has notable gaps that should be addressed in the near term.",
         "Low":      "The configuration is broadly sound. Minor hardening improvements are recommended.",
-        "Passed":   "No policy issues were detected. Continue to review configurations periodically.",
+        "Passed":   "No issues were detected. Continue to review configurations periodically.",
     }
 
     top = [f for f in findings if f.severity.value in ("Critical", "High")][:5]
-
     immediate = []
     for f in top:
-        affected_count = len(f.affected_rules) or len(f.affected)
-        obj = f"{affected_count} rule{'s' if affected_count != 1 else ''}" if affected_count else "configuration"
+        ac = len(f.affected_rules) or len(f.affected)
+        obj = f"{ac} rule{'s' if ac != 1 else ''}" if ac else "configuration"
         immediate.append(f"{f.title} — affects {obj}")
 
+    # Split policy vs config counts
+    policy_cats = {"Firewall Rules", "NAT Rules", "VPN — IPSec", "Administration", "Logging"}
+    policy_findings  = [f for f in findings if f.category in policy_cats]
+    config_findings  = [f for f in findings if f.category not in policy_cats]
+
+    policy_counts = {s: 0 for s in ("Critical","High","Medium","Low","Info")}
+    config_counts = {s: 0 for s in ("Critical","High","Medium","Low","Info")}
+    for f in policy_findings:
+        policy_counts[f.severity.value] += 1
+    for f in config_findings:
+        config_counts[f.severity.value] += 1
+
     return {
-        "rating":    rating,
-        "score":     score,
-        "posture":   posture_map[rating],
-        "immediate": immediate,
-        "total":     len(findings),
+        "rating":         rating,
+        "score":          score,
+        "posture":        posture_map[rating],
+        "immediate":      immediate,
+        "total":          len(findings),
+        "policy_counts":  policy_counts,
+        "config_counts":  config_counts,
+        "policy_total":   len(policy_findings),
+        "config_total":   len(config_findings),
     }
 
 

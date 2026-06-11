@@ -1,12 +1,22 @@
-"""Run all policy checks and return sorted findings."""
+"""Run all policy and configuration checks, return sorted findings."""
 from .checks.models import Finding, SEVERITY_ORDER
-from .checks import firewall_rules, vpn, admin, logging_checks, nat
+from .checks import (
+    # Policy checks
+    firewall_rules, vpn, admin, logging_checks, nat,
+    # Config checks
+    cfg_system, cfg_auth, cfg_certificates, cfg_network, cfg_threat, cfg_email,
+)
 from .parser import SophosConfig
 
 
 def run_all(cfg: SophosConfig) -> list[Finding]:
     findings: list[Finding] = []
-    for module in (firewall_rules, vpn, admin, logging_checks, nat):
+    for module in (
+        # Policy
+        firewall_rules, vpn, admin, logging_checks, nat,
+        # Configuration hardening
+        cfg_system, cfg_auth, cfg_certificates, cfg_network, cfg_threat, cfg_email,
+    ):
         findings.extend(module.run(cfg))
     findings.sort(key=lambda f: SEVERITY_ORDER[f.severity])
     return findings
