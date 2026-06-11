@@ -1,17 +1,41 @@
 """Firewall rule policy checks."""
+import re
 from .models import Finding, Severity
+from .utils import v as _v, off as _off
 
 _ANY = {"any", "all", "*", ""}
+_WAN_ZONES = {"wan", "internet", "untrust", "external", "outside", "public"}
 _RISKY_SERVICES = {
     "telnet", "ftp", "tftp", "rsh", "rlogin", "snmp", "snmpv1", "snmpv2",
     "finger", "chargen", "echo", "discard", "rpc", "nfs",
 }
+# Network/security terms that look like title-case words but aren't personal names
+_NOT_NAMES = {
+    "wan", "lan", "dmz", "vpn", "nat", "dns", "ntp", "ftp", "ssh", "ssl", "tls",
+    "http", "https", "smtp", "snmp", "vlan", "mgmt", "mgmnt", "any", "all",
+    "allow", "deny", "drop", "accept", "reject", "inbound", "outbound", "internet",
+    "firewall", "policy", "rule", "zone", "network", "host", "server", "client",
+    "internal", "external", "public", "private", "guest", "corp", "corporate",
+    "voice", "data", "video", "iot", "prod", "dev", "test", "staging", "backup",
+    "access", "block", "permit", "local", "remote", "static", "dynamic",
+}
+# Matches two consecutive title-cased words that could be a personal name
+_PII_RE = re.compile(r'\b([A-Z][a-z]{1,})\s+([A-Z][a-z]{1,})\b')
 
 _FW_NAV = "Firewall → Rules and policies → Firewall rules"
 
 
 def _is_any(values: list[str]) -> bool:
     return not values or any(v.strip().lower() in _ANY for v in values)
+
+
+def _has_pii(text: str) -> bool:
+    """Return True if text appears to contain a personal name (two title-case words)."""
+    for m in _PII_RE.finditer(text or ""):
+        w1, w2 = m.group(1).lower(), m.group(2).lower()
+        if w1 not in _NOT_NAMES and w2 not in _NOT_NAMES:
+            return True
+    return False
 
 
 def _label(rule: dict) -> str:
@@ -35,15 +59,18 @@ def run(cfg) -> list[Finding]:
         return findings
 
     any_any_rules: list[dict] = []
+    wan_any_src_rules: list[dict] = []
     no_log_rules: list[dict] = []
     disabled_accept_rules: list[dict] = []
     disabled_drop_rules: list[dict] = []
     all_services_rules: list[dict] = []
     risky_service_rules: list[tuple[dict, str]] = []
+    pii_rules: list[dict] = []
 
     for rule in rules:
         status = rule.get("status", "Enable").lower()
         action = rule.get("action", "").lower()
+        src_zones = rule.get("src_zones", [])
         src_nets = rule.get("src_networks", [])
         dst_nets = rule.get("dst_networks", [])
         services = rule.get("services", [])
@@ -55,6 +82,16 @@ def run(cfg) -> list[Finding]:
                 disabled_drop_rules.append(rule)
             else:
                 disabled_accept_rules.append(rule)
+
+        # WAN-sourced accept rule with no source network restriction
+        if (action in ("accept", "allow") and not is_disabled
+                and any(z.strip().lower() in _WAN_ZONES for z in src_zones)
+                and _is_any(src_nets)):
+            wan_any_src_rules.append(rule)
+
+        # PII in rule name or description
+        if _has_pii(rule.get("name", "") or "") or _has_pii(rule.get("description", "") or ""):
+            pii_rules.append(rule)
 
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
             any_any_rules.append(rule)
@@ -101,6 +138,42 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in any_any_rules],
             affected_rules=any_any_rules,
+        ))
+
+    if wan_any_src_rules:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Firewall Rules",
+            title="WAN-zone accept rules with unrestricted source network",
+            detail=(
+                "These rules accept traffic sourced from the WAN zone without restricting the "
+                "source network to specific IP addresses. Any host on the internet can initiate "
+                "a connection matching these rules."
+            ),
+            recommendation=(
+                "Restrict the source network on every WAN-sourced accept rule to the specific "
+                "IP addresses or CIDR ranges that legitimately need access. "
+                "Unrestricted WAN accept rules directly enable MITRE ATT&CK T1190 "
+                "(Exploit Public-Facing Application) and T1133 (External Remote Services) — "
+                "any internet host can probe and attack the permitted destination. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration and the principle of least privilege. "
+                "If broad access is intentional (e.g. public web server), validate that IPS and AV policies "
+                "are applied and that the destination is isolated in a DMZ."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Click the rule name → Edit → under 'Source networks', remove 'Any' "
+                "and add specific allowed host/network objects → Save"
+            ),
+            references=[
+                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                "MITRE ATT&CK T1133 – External Remote Services",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "NIST SP 800-41 Rev 1 §3.2 – Least-Privilege Firewall Policy",
+                "CIS Controls v8 – 4.4 Implement and Manage a Firewall on Servers",
+            ],
+            affected=[_label(r) for r in wan_any_src_rules],
+            affected_rules=wan_any_src_rules,
         ))
 
     if all_services_rules:
@@ -267,6 +340,41 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in disabled_accept_rules],
             affected_rules=disabled_accept_rules,
+        ))
+
+    if pii_rules:
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category="Firewall Rules",
+            title="Possible personal names (PII) embedded in rule names or descriptions",
+            detail=(
+                "One or more firewall rules contain text that matches the pattern of a personal "
+                "name (two consecutive title-cased words). Using names of individuals in firewall "
+                "rule objects ties infrastructure policy to specific people, exposing personal data "
+                "in config exports and audit logs."
+            ),
+            recommendation=(
+                "Rename rules using role-based or functional identifiers (e.g. 'IT-Admin-RDP-Access' "
+                "instead of 'Juan Dela Cruz RDP'). "
+                "Under the Philippines Data Privacy Act (RA 10173) and GDPR Article 5(1)(c), "
+                "personal data must not be processed beyond what is necessary. "
+                "Config backup files are routinely shared with vendors and auditors — embedded personal "
+                "names create unnecessary PII exposure. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures (sensitive data exposure) and "
+                "NIST SP 800-53 Rev 5 AC-2 (Account Management) which requires role-based access labelling."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Click the rule name → Edit → rename the rule to a functional/role-based identifier → Save"
+            ),
+            references=[
+                "Philippines Republic Act 10173 – Data Privacy Act of 2012",
+                "GDPR Article 5(1)(c) – Data Minimisation",
+                "NIST SP 800-53 Rev 5 AC-2 – Account Management",
+                "OWASP A02:2021 – Cryptographic Failures (sensitive data in config exports)",
+            ],
+            affected=[_label(r) for r in pii_rules],
+            affected_rules=pii_rules,
         ))
 
     return findings

@@ -24,11 +24,24 @@ def run(cfg) -> list[Finding]:
 
     risky_port_rules: list[tuple[str, str, str]] = []
     rdp_exposed: list[str] = []
+    dnat_any_source: list[str] = []
 
     for rule in rules:
         name = _val(rule, "Name", "RuleName")
         translated_port = _val(rule, "TranslatedPort", "DestinationPort", "MappedPort")
         original_port = _val(rule, "OriginalPort", "ExternalPort")
+        translated_dst = _val(rule, "TranslatedDestination", "MappedDestination", "TranslatedIP",
+                              "InternalIP", "MappedHost")
+        orig_src = _val(rule, "OriginalSource", "SourceNetwork", "OriginalSourceNetwork",
+                        "SourceIP", "Source")
+        rule_type = _val(rule, "Type", "RuleType", "NATType").lower()
+
+        # Flag DNAT rules (identified by having a TranslatedDestination or explicit DNAT type)
+        # where the original source is unrestricted — any internet host can reach the target.
+        is_dnat = bool(translated_dst) or rule_type in ("dnat", "port forwarding", "portforwarding",
+                                                         "server access assistant", "dst nat")
+        if is_dnat and (not orig_src or orig_src.lower() in ("any", "all", "*")):
+            dnat_any_source.append(name or "(unnamed)")
 
         for port, service in _RISKY_PORTS.items():
             if translated_port == port or original_port == port:
@@ -104,6 +117,43 @@ def run(cfg) -> list[Finding]:
                 "or Edit to add an 'Original source' restriction to a trusted IP range"
             ),
             affected=affected,
+        ))
+
+    if dnat_any_source:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="NAT Rules",
+            title="DNAT rules with unrestricted source (Any internet host allowed)",
+            detail=(
+                "These destination NAT rules forward inbound traffic to internal hosts without "
+                "restricting the original source network. Any IP address on the internet can "
+                "initiate a connection that will be forwarded to the internal target, regardless "
+                "of the destination port."
+            ),
+            recommendation=(
+                "Restrict the 'Original source' field on every DNAT rule to the specific IP "
+                "addresses or CIDR ranges that legitimately need access. "
+                "If the service must be publicly accessible (e.g. a web server), ensure it is "
+                "placed in a DMZ and protected by IPS and application-layer filtering. "
+                "Unrestricted DNAT enables MITRE ATT&CK T1190 (Exploit Public-Facing Application) "
+                "and T1133 (External Remote Services) — the internal target is exposed to all "
+                "internet scanning and exploit attempts. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration and "
+                "NIST SP 800-41 Rev 1 §3.3 – NAT Policy Least Privilege."
+            ),
+            location=(
+                f"{_NAT_NAV}\n"
+                "→ Click the rule name → Edit → under 'Original source', remove 'Any' "
+                "and add specific allowed IP objects → Save"
+            ),
+            references=[
+                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                "MITRE ATT&CK T1133 – External Remote Services",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "NIST SP 800-41 Rev 1 §3.3 – NAT Considerations",
+                "CIS Controls v8 – 4.4 Implement and Manage a Firewall on Servers",
+            ],
+            affected=dnat_any_source,
         ))
 
     if not rules:

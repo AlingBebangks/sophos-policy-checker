@@ -1,5 +1,6 @@
 """VPN policy checks — IPSec and SSL VPN."""
 from .models import Finding, Severity
+from .utils import v as _v, off as _off
 
 _WEAK_ENC = {"des", "3des", "triple-des", "null", "none", "rc4"}
 _WEAK_AUTH = {"md5", "sha1", "none", "null"}
@@ -250,6 +251,135 @@ def run(cfg) -> list[Finding]:
                 "VPN → Remote access → PPTP/L2TP → Disable → Apply\n"
                 "Migrate users: VPN → Sophos Connect (SSL VPN) or IPSec remote access"
             ),
+        ))
+
+    # ── SSL VPN ───────────────────────────────────────────────────────────────
+    ssl_broad_scope: list[str] = []
+    ssl_no_mfa: list[str] = []
+    ssl_weak_tls: list[str] = []
+    _WEAK_TLS = {"ssl3", "sslv3", "tls1", "tls1.0", "tlsv1", "tls1.1", "tlsv1.1"}
+
+    for policy in cfg.vpn_ssl:
+        name = _v(policy, "Name", "PolicyName") or "(unnamed)"
+
+        # Over-permissive destination scope
+        dest = _v(policy, "DestinationNetworks", "AllowedNetworks", "AccessibleNetworks",
+                  "PermittedNetworks", "Network")
+        if not dest or dest.lower() in ("any", "all", "*"):
+            ssl_broad_scope.append(name)
+
+        # MFA not enforced on SSL VPN
+        mfa = _v(policy, "OTPEnable", "MFA", "TwoFactor", "TwoFactorAuth", "TOTPEnabled",
+                 "OTP", "MultiFactor")
+        if mfa and _off(mfa):
+            ssl_no_mfa.append(name)
+
+        # Weak TLS minimum version
+        tls_min = _v(policy, "TLSMinVersion", "MinTLSVersion", "SSLVersion", "TLSVersion")
+        if tls_min.lower() in _WEAK_TLS:
+            ssl_weak_tls.append(f"{name} (min={tls_min})")
+
+    if ssl_broad_scope:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="VPN — IPSec",
+            title="SSL VPN policies grant access to all networks (Any destination)",
+            detail=(
+                "These SSL VPN policies do not restrict the accessible destination networks. "
+                "A connected user can reach any internal resource, including management interfaces, "
+                "servers in all subnets, and OT/IoT segments — as if physically on the LAN."
+            ),
+            recommendation=(
+                "Define explicit allowed-network lists for each SSL VPN policy, scoped to only "
+                "the subnets that each user group needs. Separate policies per role "
+                "(e.g. IT-Admins, Finance, Remote-Workers). "
+                "Broad SSL VPN scope enables MITRE ATT&CK TA0008 (Lateral Movement) — "
+                "a compromised VPN credential gives unrestricted internal access. "
+                "Aligns with OWASP A01:2021 – Broken Access Control and "
+                "NIST SP 800-77 Rev 1 §4.4 – Split Tunnelling and Access Control."
+            ),
+            location=(
+                "VPN → SSL VPN → Policies → Edit policy\n"
+                "→ Permitted network resources → replace 'Any' with specific network objects → Save"
+            ),
+            references=[
+                "MITRE ATT&CK TA0008 – Lateral Movement",
+                "MITRE ATT&CK T1078 – Valid Accounts (broad scope amplifies impact)",
+                "OWASP A01:2021 – Broken Access Control",
+                "NIST SP 800-77 Rev 1 §4.4 – Access Control for VPN Clients",
+                "CIS Controls v8 – 6.2 Establish an Access Granting Process",
+            ],
+            affected=ssl_broad_scope,
+        ))
+
+    if ssl_no_mfa:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="VPN — IPSec",
+            title="SSL VPN policies without MFA / OTP enforcement",
+            detail=(
+                "MFA/OTP is disabled on these SSL VPN policies. A single compromised credential "
+                "is sufficient to authenticate and gain network access."
+            ),
+            recommendation=(
+                "Enable OTP/MFA on all SSL VPN policies. Sophos supports TOTP-based one-time "
+                "passwords via the Sophos Authenticator app. "
+                "Single-factor VPN is a primary target for MITRE ATT&CK T1078 (Valid Accounts) "
+                "and T1110 (Brute Force) — credential stuffing attacks succeed without MFA. "
+                "Aligns with OWASP A07:2021 – Identification and Authentication Failures."
+            ),
+            location=(
+                "VPN → SSL VPN → Policies → Edit policy\n"
+                "→ Two-factor authentication → Enable OTP → Save\n"
+                "Users must then enrol via VPN → Show VPN portal"
+            ),
+            references=[
+                "MITRE ATT&CK T1078 – Valid Accounts",
+                "MITRE ATT&CK T1110 – Brute Force",
+                "OWASP A07:2021 – Identification and Authentication Failures",
+                "NIST SP 800-63B §5.1.3 – Multi-Factor Authentication",
+                "CIS Controls v8 – 6.3 Require MFA for Externally-Exposed Applications",
+            ],
+            affected=ssl_no_mfa,
+        ))
+
+    if ssl_weak_tls:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="VPN — IPSec",
+            title="SSL VPN allows deprecated TLS versions (TLS 1.0/1.1 or SSL 3.0)",
+            detail=(
+                "The SSL VPN is configured to accept connections using TLS 1.0, TLS 1.1, or SSL 3.0. "
+                "These protocol versions have known weaknesses (POODLE, BEAST, CRIME) and are "
+                "deprecated by RFC 8996."
+            ),
+            recommendation=(
+                "Set the minimum TLS version to TLS 1.2, preferably TLS 1.3. "
+                "Deprecated TLS versions enable MITRE ATT&CK T1557 (Adversary-in-the-Middle) "
+                "via protocol downgrade attacks. "
+                "Aligns with OWASP A02:2021 – Cryptographic Failures and "
+                "NIST SP 800-52 Rev 2 which mandates TLS 1.2 minimum."
+            ),
+            location=(
+                "VPN → SSL VPN → Advanced settings\n"
+                "→ Minimum TLS version → set to TLS 1.2 or TLS 1.3 → Apply"
+            ),
+            references=[
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "NIST SP 800-52 Rev 2 – Guidelines for TLS Implementations",
+                "RFC 8996 – Deprecating TLS 1.0 and TLS 1.1",
+            ],
+            affected=ssl_weak_tls,
+        ))
+
+    if not cfg.vpn_ssl:
+        findings.append(Finding(
+            severity=Severity.INFO,
+            category="VPN — IPSec",
+            title="No SSL VPN policies found",
+            detail="No SSLVPNPolicy elements were detected in the configuration.",
+            recommendation="No action required if SSL VPN is not in use.",
         ))
 
     return findings

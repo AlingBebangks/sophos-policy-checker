@@ -152,6 +152,7 @@ async def analyze(request: Request, config_file: UploadFile = File(...)):
     return templates.TemplateResponse("report.html", {
         "request": request,
         "token": token,
+        "pdf_mode": False,
         **ctx,
     })
 
