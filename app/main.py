@@ -128,7 +128,7 @@ def _build_context(filename: str, raw: bytes) -> dict:
 
     return {
         "filename":  filename,
-        "generated": datetime.now(_SGT).strftime("%Y-%m-%d %H:%M SGT"),
+        "generated": datetime.now(_SGT).strftime("%Y-%m-%d %H:%M GMT+8"),
         "findings":  findings,
         "counts":    counts,
         "stats":     stats,
