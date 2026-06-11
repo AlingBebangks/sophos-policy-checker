@@ -108,6 +108,56 @@ def run(cfg) -> list[Finding]:
     zone_names = {_v(z, "Name", "ZoneName", "name").lower() for z in zones}
 
     if zones:
+        # ── Zone-level IP spoof prevention ────────────────────────────────────
+        spoof_disabled_zones: list[str] = []
+        for zone in zones:
+            zone_name = (
+                zone.get("Name") or zone.get("ZoneName") or zone.get("name") or "(unnamed)"
+            )
+            spoof_val = (
+                zone.get("IPSpoofPrevention") or zone.get("SpoofPrevention") or
+                zone.get("SpoofProtection") or zone.get("AntiSpoofing") or
+                zone.get("IPSpoofCheck") or ""
+            )
+            # Only flag zones that have an explicit 'disable' — zones with no
+            # value at all may simply not support the field.
+            if spoof_val and _off(spoof_val):
+                spoof_disabled_zones.append(zone_name)
+
+        if spoof_disabled_zones:
+            findings.append(Finding(
+                severity=Severity.HIGH,
+                category=_S,
+                title="IP spoof prevention disabled on network zones",
+                detail=(
+                    "IP spoof prevention is explicitly disabled on the listed zones. "
+                    "Without this control, packets with forged source IP addresses — including "
+                    "spoofed internal addresses — are accepted, allowing attackers to bypass "
+                    "IP-based access controls and inject traffic as trusted hosts."
+                ),
+                recommendation=(
+                    "Enable IP spoof prevention on all zones, especially WAN-facing and DMZ zones. "
+                    "This implements RFC 2827 (BCP 38) ingress filtering at the zone level. "
+                    "Disabled spoof prevention enables MITRE ATT&CK T1557 (Adversary-in-the-Middle) "
+                    "via source IP forgery and T1036.005 (Masquerading) — attackers can impersonate "
+                    "trusted internal hosts. "
+                    "Aligns with OWASP A05:2021 – Security Misconfiguration."
+                ),
+                references=[
+                    "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                    "MITRE ATT&CK T1036.005 – Masquerading: Match Legitimate Name or Location",
+                    "OWASP A05:2021 – Security Misconfiguration",
+                    "RFC 2827 – Network Ingress Filtering (BCP 38)",
+                    "NIST SP 800-53 Rev 5 SC-7 – Boundary Protection",
+                    "CIS Controls v8 – 12.2 Establish and Maintain a Secure Network Architecture",
+                ],
+                location=(
+                    "Network → Zones → Edit zone → enable IP spoof prevention → Apply\n"
+                    "Repeat for each affected zone."
+                ),
+                affected=spoof_disabled_zones,
+            ))
+
         has_dmz = any(n in zone_names for n in ("dmz", "demilitarized", "screened"))
         if not has_dmz:
             findings.append(Finding(

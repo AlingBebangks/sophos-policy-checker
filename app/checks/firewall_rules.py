@@ -36,7 +36,8 @@ def run(cfg) -> list[Finding]:
 
     any_any_rules: list[dict] = []
     no_log_rules: list[dict] = []
-    disabled_rules: list[dict] = []
+    disabled_accept_rules: list[dict] = []
+    disabled_drop_rules: list[dict] = []
     all_services_rules: list[dict] = []
     risky_service_rules: list[tuple[dict, str]] = []
 
@@ -48,8 +49,12 @@ def run(cfg) -> list[Finding]:
         services = rule.get("services", [])
         log = rule.get("log_traffic", "Disable").lower()
 
-        if status in ("disable", "disabled", "0", "false"):
-            disabled_rules.append(rule)
+        is_disabled = status in ("disable", "disabled", "0", "false")
+        if is_disabled:
+            if action in ("drop", "deny", "reject"):
+                disabled_drop_rules.append(rule)
+            else:
+                disabled_accept_rules.append(rule)
 
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
             any_any_rules.append(rule)
@@ -199,17 +204,53 @@ def run(cfg) -> list[Finding]:
             affected_rules=no_log_rules,
         ))
 
-    if disabled_rules:
+    if disabled_drop_rules:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Firewall Rules",
+            title="Disabled DROP/DENY rules — safety net removed",
+            detail=(
+                "These rules are configured to DROP or DENY traffic but are currently disabled. "
+                "A disabled deny rule is more dangerous than a disabled accept rule: the safety net "
+                "that would block malicious traffic is silently absent. If traffic is not matched by "
+                "an earlier accept rule, it may fall through to a permissive default or another allow rule, "
+                "passing uninspected."
+            ),
+            recommendation=(
+                "Re-enable all DROP/DENY rules unless there is a documented and reviewed reason to disable them. "
+                "Disabled deny rules directly support MITRE ATT&CK T1562.004 "
+                "(Impair Defenses: Disable or Modify System Firewall) — "
+                "an attacker or misconfiguration that disables a block rule creates an uncontrolled traffic path. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration. "
+                "Review each rule: re-enable if needed, delete if obsolete, or document the business justification."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Find the disabled rule (grey toggle) → click the toggle to re-enable → Save\n"
+                "Or: three-dot menu → Delete if the rule is confirmed obsolete"
+            ),
+            references=[
+                "MITRE ATT&CK T1562.004 – Impair Defenses: Disable or Modify System Firewall",
+                "MITRE ATT&CK TA0008 – Lateral Movement (enabled by missing deny rules)",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "NIST SP 800-41 Rev 1 §3.2 – Default-Deny Firewall Policy",
+                "CIS Control 4.4 – Implement and Manage a Firewall on Servers",
+            ],
+            affected=[_label(r) for r in disabled_drop_rules],
+            affected_rules=disabled_drop_rules,
+        ))
+
+    if disabled_accept_rules:
         findings.append(Finding(
             severity=Severity.LOW,
             category="Firewall Rules",
-            title="Disabled firewall rules still present in policy",
+            title="Disabled accept rules still present in policy",
             detail=(
-                "Disabled rules accumulate over time and create policy clutter. "
+                "Disabled accept rules accumulate over time and create policy clutter. "
                 "They may be re-enabled accidentally during maintenance."
             ),
             recommendation=(
-                "Review all disabled rules. Remove rules that are no longer needed. "
+                "Review all disabled accept rules. Remove rules that are no longer needed. "
                 "Document the reason any rule is intentionally disabled. "
                 "Stale rules can be re-enabled to support MITRE ATT&CK T1562.004 "
                 "(Impair Defenses: Disable or Modify System Firewall) during an incident."
@@ -224,8 +265,8 @@ def run(cfg) -> list[Finding]:
                 "OWASP A05:2021 – Security Misconfiguration",
                 "CIS Control 4.1 – Establish and Maintain a Secure Configuration Process",
             ],
-            affected=[_label(r) for r in disabled_rules],
-            affected_rules=disabled_rules,
+            affected=[_label(r) for r in disabled_accept_rules],
+            affected_rules=disabled_accept_rules,
         ))
 
     return findings

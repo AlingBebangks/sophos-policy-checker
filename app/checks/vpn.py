@@ -194,4 +194,62 @@ def run(cfg) -> list[Finding]:
             recommendation="No action required if IPSec VPN is not in use.",
         ))
 
+    # ── PPTP / L2TP without IPSec ─────────────────────────────────────────────
+    pptp = cfg.vpn_pptp
+    if pptp:
+        tag = pptp.get("_tag", "").lower()
+        status = (
+            pptp.get("Status") or pptp.get("Enable") or pptp.get("Enabled") or
+            pptp.get("State") or ""
+        ).lower()
+        enabled = status not in ("disable", "disabled", "0", "false", "off", "no", "")
+
+        # PPTP is always a critical finding — the protocol itself is broken.
+        # L2TP without IPSec is also critical.
+        is_l2tp = "l2tp" in tag
+        title = (
+            "L2TP VPN enabled without IPSec encryption"
+            if is_l2tp else
+            "PPTP VPN enabled — protocol is cryptographically broken"
+        )
+        detail = (
+            "L2TP without IPSec provides no encryption. Traffic is transmitted in cleartext."
+            if is_l2tp else
+            "PPTP uses MS-CHAPv2 for authentication and RC4-40/128 for encryption, both of which "
+            "are completely broken. MS-CHAPv2 can be cracked in under 24 hours using cloud compute. "
+            "PPTP provides no meaningful confidentiality or integrity protection."
+        )
+        recommendation = (
+            "Disable L2TP unless it is paired with IPSec (L2TP/IPSec). "
+            "Migrate remote access users to SSL VPN or IPSec IKEv2. "
+            if is_l2tp else
+            "Disable PPTP immediately. Migrate all users to Sophos SSL VPN or IPSec IKEv2. "
+            "PPTP is exploitable via MITRE ATT&CK T1040 (Network Sniffing) — "
+            "MS-CHAPv2 handshakes captured passively can be cracked offline to recover plaintext VPN credentials, "
+            "enabling T1078 (Valid Accounts). "
+            "Aligns with OWASP A02:2021 – Cryptographic Failures."
+        )
+        # Always flag as Critical when the config section exists regardless of
+        # enabled status — if found it should be explicitly disabled and removed.
+        severity = Severity.CRITICAL if (not is_l2tp or enabled) else Severity.HIGH
+        findings.append(Finding(
+            severity=severity,
+            category="VPN — IPSec",
+            title=title,
+            detail=detail + ("" if enabled else " The setting is currently disabled but should be removed."),
+            recommendation=recommendation,
+            references=[
+                "MITRE ATT&CK T1040 – Network Sniffing",
+                "MITRE ATT&CK T1078 – Valid Accounts",
+                "OWASP A02:2021 – Cryptographic Failures",
+                "NIST SP 800-77 Rev 1 §2.1 – Deprecated VPN Protocols",
+                "CVE-2012-2122 – MS-CHAPv2 inherent weakness (Moxie Marlinspike / CloudCracker)",
+                "RFC 8247 §2.1 – PPTP/L2TP not recommended",
+            ],
+            location=(
+                "VPN → Remote access → PPTP/L2TP → Disable → Apply\n"
+                "Migrate users: VPN → Sophos Connect (SSL VPN) or IPSec remote access"
+            ),
+        ))
+
     return findings

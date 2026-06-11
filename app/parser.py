@@ -11,6 +11,7 @@ class SophosConfig:
     nat_rules:      list[dict]  = field(default_factory=list)
     vpn_ipsec:      list[dict]  = field(default_factory=list)
     vpn_ssl:        list[dict]  = field(default_factory=list)
+    vpn_pptp:       dict        = field(default_factory=dict)
     # Administration
     admin_settings: dict        = field(default_factory=dict)
     device_access:  list[dict]  = field(default_factory=list)
@@ -86,7 +87,8 @@ def _first(root, *xpaths) -> Any:
 
 def parse(xml_bytes: bytes) -> SophosConfig:
     try:
-        root = etree.fromstring(xml_bytes)
+        _parser = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False)
+        root = etree.fromstring(xml_bytes, _parser)
     except etree.XMLSyntaxError as exc:
         raise ValueError(f"Invalid XML: {exc}") from exc
 
@@ -140,6 +142,13 @@ def parse(xml_bytes: bytes) -> SophosConfig:
     # ── SSL VPN ───────────────────────────────────────────────────────────────
     for policy in root.iter("SSLVPNPolicy"):
         cfg.vpn_ssl.append(_el_to_dict(policy))
+
+    # ── PPTP VPN ──────────────────────────────────────────────────────────────
+    pptp_el = _first(root, ".//PPTPSettings", ".//PPTP", ".//PPTPServer", ".//L2TPSettings",
+                     ".//RemoteAccessVPN/PPTP", ".//RemoteAccessVPN/L2TP")
+    if pptp_el is not None:
+        cfg.vpn_pptp = _el_to_dict(pptp_el)
+        cfg.vpn_pptp["_tag"] = pptp_el.tag  # preserve element name for type detection
 
     # ── Administration ────────────────────────────────────────────────────────
     admin_el = _first(root, ".//AdministrationSettings", ".//Administration")

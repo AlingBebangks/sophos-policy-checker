@@ -324,4 +324,91 @@ def run(cfg) -> list[Finding]:
                 location="Web → SSL/TLS inspection → Enable → Apply",
             ))
 
+    # ── DoS / Flood Protection ────────────────────────────────────────────────
+    dos = cfg.dos_settings
+    if not dos:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category=_S,
+            title="DoS/flood protection settings not found",
+            detail=(
+                "No DoS protection configuration was detected. Without flood protection, "
+                "the firewall may be susceptible to SYN flood, UDP flood, and ICMP flood attacks "
+                "that exhaust connection tables and cause service interruption."
+            ),
+            recommendation=(
+                "Enable DoS protection under Firewall → Flood protection. Configure SYN flood, "
+                "UDP flood, and ICMP flood thresholds appropriate for your environment. "
+                "Aligns with MITRE ATT&CK T1498 (Network Denial of Service) and T1499 (Endpoint DoS). "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            references=[
+                "MITRE ATT&CK T1498 – Network Denial of Service",
+                "MITRE ATT&CK T1499 – Endpoint Denial of Service",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "NIST SP 800-53 Rev 5 SC-5 – Denial-of-Service Protection",
+                "CIS Controls v8 – 13.4 Perform Traffic Filtering Between Network Segments",
+            ],
+            location="Firewall → Flood protection → Enable SYN/UDP/ICMP flood protection → Apply",
+        ))
+    else:
+        # Check each flood type's Apply Flag
+        _FLOOD_TYPES = [
+            ("SYNFlood",   "SYNFlood",   "SYN"),
+            ("UDPFlood",   "UDPFlood",   "UDP"),
+            ("ICMPFlood",  "ICMPFlood",  "ICMP"),
+            ("IPFlood",    "IPFlood",    "IP"),
+        ]
+        disabled_floods: list[str] = []
+        for key, label, proto in _FLOOD_TYPES:
+            section = dos.get(key, {})
+            if not isinstance(section, dict):
+                continue
+            apply_flag = section.get("ApplyFlag") or section.get("Enable") or section.get("Status") or ""
+            if _off(str(apply_flag)):
+                disabled_floods.append(proto)
+            # Also check flat-key layout (some firmware versions)
+            flat_flag = dos.get(f"{key}ApplyFlag") or dos.get(f"{key}Enable") or ""
+            if flat_flag and _off(str(flat_flag)) and proto not in disabled_floods:
+                disabled_floods.append(proto)
+
+        # Check top-level enable flag
+        top_flag = _v(dos, "Enable", "Status", "Enabled", "FloodProtection")
+        if _off(top_flag) and not disabled_floods:
+            disabled_floods = ["SYN", "UDP", "ICMP", "IP"]  # all implicitly off
+
+        if disabled_floods:
+            findings.append(Finding(
+                severity=Severity.HIGH,
+                category=_S,
+                title=f"Flood protection disabled for: {', '.join(disabled_floods)}",
+                detail=(
+                    f"The following flood protection types are disabled or have ApplyFlag set to off: "
+                    f"{', '.join(disabled_floods)}. "
+                    "Without these controls, an attacker can exhaust the firewall's connection state table "
+                    "with a relatively low-bandwidth attack, taking the device or downstream hosts offline."
+                ),
+                recommendation=(
+                    f"Enable flood protection for {', '.join(disabled_floods)} and set ApplyFlag to on. "
+                    "Tune thresholds to match legitimate peak traffic — start with vendor defaults and "
+                    "adjust based on traffic baselines. "
+                    "Disabled flood protection directly enables MITRE ATT&CK T1498 (Network Denial of Service) "
+                    "and T1499 (Endpoint DoS). "
+                    "Aligns with OWASP A05:2021 – Security Misconfiguration and "
+                    "NIST SP 800-53 Rev 5 SC-5 (Denial-of-Service Protection)."
+                ),
+                references=[
+                    "MITRE ATT&CK T1498 – Network Denial of Service",
+                    "MITRE ATT&CK T1499 – Endpoint Denial of Service",
+                    "OWASP A05:2021 – Security Misconfiguration",
+                    "NIST SP 800-53 Rev 5 SC-5 – Denial-of-Service Protection",
+                    "CIS Controls v8 – 13.4 Perform Traffic Filtering Between Network Segments",
+                ],
+                location=(
+                    "Firewall → Flood protection\n"
+                    f"→ {' / '.join(disabled_floods)} flood → Enable → set ApplyFlag = On → Apply"
+                ),
+                affected=disabled_floods,
+            ))
+
     return findings
