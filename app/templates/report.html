@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sophos XG Policy Audit Report</title>
+<style>
+  :root {
+    --critical: #c0392b; --critical-bg: #fdf0ef;
+    --high: #e67e22;     --high-bg: #fef6ec;
+    --medium: #d4ac0d;   --medium-bg: #fefde7;
+    --low: #2980b9;      --low-bg: #eaf4fc;
+    --info: #7f8c8d;     --info-bg: #f4f6f7;
+    --border: #dde1e7;
+    --text: #2c3e50;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: var(--text); }
+
+  header {
+    background: linear-gradient(135deg, #1a252f 0%, #2c3e50 100%);
+    color: white; padding: 32px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 1.6rem; font-weight: 600; }
+  header .meta { font-size: 0.85rem; opacity: 0.7; margin-top: 6px; }
+  .logo { font-size: 2rem; opacity: 0.3; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 28px;
+  }
+  .summary-card {
+    background: white; border-radius: 10px; padding: 18px 14px;
+    text-align: center; border-top: 4px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .summary-card .count { font-size: 2.4rem; font-weight: 700; }
+  .summary-card .label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .5px; color: #6c757d; margin-top: 4px; }
+  .card-critical { border-color: var(--critical); }
+  .card-critical .count { color: var(--critical); }
+  .card-high     { border-color: var(--high); }
+  .card-high .count     { color: var(--high); }
+  .card-medium   { border-color: var(--medium); }
+  .card-medium .count   { color: var(--medium); }
+  .card-low      { border-color: var(--low); }
+  .card-low .count      { color: var(--low); }
+  .card-info     { border-color: var(--info); }
+  .card-info .count     { color: var(--info); }
+
+  /* Config inventory */
+  .inventory { background: white; border-radius: 10px; padding: 20px 24px; margin-bottom: 28px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .inventory h2 { font-size: 1rem; font-weight: 600; margin-bottom: 12px; }
+  .inv-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .inv-tag { background: #eef2f7; border-radius: 6px; padding: 5px 12px; font-size: 0.82rem; }
+  .inv-tag span { font-weight: 600; color: #2980b9; }
+
+  /* Findings */
+  .section-title {
+    font-size: 1.15rem; font-weight: 700; margin: 28px 0 14px;
+    padding-bottom: 8px; border-bottom: 2px solid var(--border);
+  }
+
+  .finding {
+    background: white; border-radius: 10px; margin-bottom: 14px;
+    border-left: 5px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    overflow: hidden;
+  }
+  .finding-header {
+    display: flex; align-items: center; padding: 14px 18px; cursor: pointer;
+    user-select: none;
+  }
+  .finding-header:hover { background: #fafbfc; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; margin-right: 12px; min-width: 72px; text-align: center;
+  }
+  .badge-Critical { background: var(--critical-bg); color: var(--critical); }
+  .badge-High     { background: var(--high-bg);     color: var(--high); }
+  .badge-Medium   { background: var(--medium-bg);   color: var(--medium); }
+  .badge-Low      { background: var(--low-bg);      color: var(--low); }
+  .badge-Info     { background: var(--info-bg);     color: var(--info); }
+
+  .finding-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+  .finding-cat { font-size: 0.78rem; color: #6c757d; margin-left: 10px; }
+  .chevron { font-size: 0.8rem; color: #aaa; transition: transform .2s; }
+  .finding.open .chevron { transform: rotate(180deg); }
+
+  .finding-Critical { border-left-color: var(--critical); }
+  .finding-High     { border-left-color: var(--high); }
+  .finding-Medium   { border-left-color: var(--medium); }
+  .finding-Low      { border-left-color: var(--low); }
+  .finding-Info     { border-left-color: var(--info); }
+
+  .finding-body { display: none; padding: 0 18px 18px; border-top: 1px solid var(--border); }
+  .finding.open .finding-body { display: block; }
+
+  .finding-body h4 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .4px; color: #6c757d; margin: 14px 0 6px; }
+  .finding-body p { font-size: 0.92rem; line-height: 1.6; }
+  .affected-list {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+  }
+  .affected-tag {
+    background: #f0f2f5; border-radius: 4px; padding: 2px 8px;
+    font-size: 0.8rem; font-family: monospace;
+  }
+  .ref-list { list-style: none; margin-top: 4px; }
+  .ref-list li::before { content: "→ "; color: #2980b9; }
+  .ref-list li { font-size: 0.85rem; }
+
+  .no-findings { background: white; border-radius: 10px; padding: 24px; text-align: center; color: #6c757d; }
+
+  footer { text-align: center; padding: 24px; font-size: 0.78rem; color: #aaa; }
+
+  /* PDF download button */
+  .pdf-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #27ae60; color: white; border: none; border-radius: 8px;
+    padding: 9px 18px; font-size: 0.88rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; transition: background .2s;
+  }
+  .pdf-btn:hover { background: #1e8449; }
+  .pdf-bar {
+    background: #1a252f; padding: 10px 40px;
+    display: flex; justify-content: flex-end; align-items: center; gap: 14px;
+  }
+  .pdf-bar span { color: #aaa; font-size: 0.8rem; }
+
+  /* Print / PDF styles */
+  @media print {
+    .pdf-bar { display: none; }
+    body { background: white; }
+    .finding-body { display: block !important; }
+    .chevron { display: none; }
+    header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .finding { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Sophos XG/SFOS — Firewall Policy Audit Report</h1>
+    <div class="meta">
+      File: <strong>{{ filename }}</strong> &nbsp;|&nbsp;
+      Generated: <strong>{{ generated }}</strong> &nbsp;|&nbsp;
+      Total findings: <strong>{{ findings|length }}</strong>
+    </div>
+  </div>
+  <div class="logo">🛡</div>
+</header>
+
+<!-- PDF download bar — hidden in pdf_mode to avoid recursion -->
+{% if not pdf_mode %}
+<div class="pdf-bar">
+  <span>Export this report:</span>
+  <a class="pdf-btn" href="/report/{{ token }}/pdf">⬇ Download PDF</a>
+  <a href="/" class="pdf-btn" style="background:#2980b9">↩ New Analysis</a>
+</div>
+{% endif %}
+
+<div class="container">
+
+  <!-- Summary -->
+  <div class="summary-grid">
+    <div class="summary-card card-critical">
+      <div class="count">{{ counts.Critical }}</div>
+      <div class="label">Critical</div>
+    </div>
+    <div class="summary-card card-high">
+      <div class="count">{{ counts.High }}</div>
+      <div class="label">High</div>
+    </div>
+    <div class="summary-card card-medium">
+      <div class="count">{{ counts.Medium }}</div>
+      <div class="label">Medium</div>
+    </div>
+    <div class="summary-card card-low">
+      <div class="count">{{ counts.Low }}</div>
+      <div class="label">Low</div>
+    </div>
+    <div class="summary-card card-info">
+      <div class="count">{{ counts.Info }}</div>
+      <div class="label">Info</div>
+    </div>
+  </div>
+
+  <!-- Config inventory -->
+  <div class="inventory">
+    <h2>Configuration Inventory</h2>
+    <div class="inv-grid">
+      <div class="inv-tag">Firewall Rules: <span>{{ stats.firewall_rules }}</span></div>
+      <div class="inv-tag">NAT Rules: <span>{{ stats.nat_rules }}</span></div>
+      <div class="inv-tag">IPSec Policies: <span>{{ stats.vpn_ipsec }}</span></div>
+      <div class="inv-tag">SSL VPN Policies: <span>{{ stats.vpn_ssl }}</span></div>
+      <div class="inv-tag">Syslog Servers: <span>{{ stats.syslog_servers }}</span></div>
+      <div class="inv-tag">Certificates: <span>{{ stats.certificates }}</span></div>
+      {% for section, count in stats.raw_sections.items() %}
+      <div class="inv-tag">{{ section }}: <span>{{ count }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Findings by severity -->
+  {% for severity in ['Critical', 'High', 'Medium', 'Low', 'Info'] %}
+  {% set sev_findings = findings | selectattr('severity.value', 'equalto', severity) | list %}
+  {% if sev_findings %}
+  <div class="section-title">{{ severity }} ({{ sev_findings|length }})</div>
+  {% for f in sev_findings %}
+  <div class="finding finding-{{ f.severity.value }}" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="badge badge-{{ f.severity.value }}">{{ f.severity.value }}</span>
+      <span class="finding-title">{{ f.title }}</span>
+      <span class="finding-cat">{{ f.category }}</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="finding-body">
+      <h4>Description</h4>
+      <p>{{ f.detail }}</p>
+
+      <h4>Recommendation</h4>
+      <p>{{ f.recommendation }}</p>
+
+      {% if f.affected %}
+      <h4>Affected Objects ({{ f.affected|length }})</h4>
+      <div class="affected-list">
+        {% for item in f.affected %}<span class="affected-tag">{{ item }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if f.references %}
+      <h4>References</h4>
+      <ul class="ref-list">
+        {% for ref in f.references %}<li>{{ ref }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% endfor %}
+
+  {% if not findings %}
+  <div class="no-findings">No findings were generated. Verify the uploaded file is a valid Sophos XG/SFOS configuration backup.</div>
+  {% endif %}
+
+</div>
+
+<footer>Generated by AIVAPT Sophos Policy Checker &nbsp;|&nbsp; For authorised use only</footer>
+
+<script>
+  // Open Critical and High by default
+  document.querySelectorAll('.finding-Critical, .finding-High').forEach(el => el.classList.add('open'));
+</script>
+</body>
+</html>

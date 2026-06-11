@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sophos Policy Checker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #1a252f 0%, #2c3e50 100%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    color: #2c3e50;
+  }
+  .card {
+    background: white; border-radius: 16px; padding: 48px 44px;
+    width: 100%; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  }
+  .logo { font-size: 3rem; text-align: center; margin-bottom: 8px; }
+  h1 { text-align: center; font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { text-align: center; font-size: 0.88rem; color: #7f8c8d; margin-bottom: 36px; }
+
+  .drop-zone {
+    border: 2px dashed #bdc3c7; border-radius: 12px; padding: 40px 20px;
+    text-align: center; cursor: pointer; transition: all .2s;
+    background: #f8f9fa; position: relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: #2980b9; background: #eaf4fc; }
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 2.4rem; margin-bottom: 10px; }
+  .drop-text { font-size: 0.92rem; color: #555; }
+  .drop-text strong { color: #2980b9; }
+  .drop-hint { font-size: 0.78rem; color: #aaa; margin-top: 6px; }
+  .file-name {
+    margin-top: 12px; font-size: 0.85rem; color: #2ecc71;
+    font-weight: 600; display: none;
+  }
+
+  .btn {
+    display: block; width: 100%; margin-top: 20px;
+    background: #2980b9; color: white; border: none; border-radius: 10px;
+    padding: 14px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    transition: background .2s;
+  }
+  .btn:hover { background: #1f6391; }
+  .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+  .progress { display: none; margin-top: 16px; }
+  .progress-bar {
+    height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: #2980b9; width: 0%;
+    animation: prog 1.5s ease-in-out infinite;
+  }
+  @keyframes prog {
+    0% { width: 0%; margin-left: 0; }
+    50% { width: 70%; margin-left: 15%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+  .progress-text { font-size: 0.82rem; color: #7f8c8d; text-align: center; margin-top: 8px; }
+
+  .error {
+    margin-top: 14px; background: #fdf0ef; border: 1px solid #e74c3c;
+    border-radius: 8px; padding: 10px 14px; font-size: 0.85rem;
+    color: #c0392b; display: none;
+  }
+
+  .features {
+    display: flex; gap: 10px; margin-top: 28px; border-top: 1px solid #ecf0f1; padding-top: 20px;
+  }
+  .feature { flex: 1; text-align: center; }
+  .feature .icon { font-size: 1.4rem; }
+  .feature .label { font-size: 0.72rem; color: #7f8c8d; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🛡️</div>
+  <h1>Sophos Policy Checker</h1>
+  <p class="subtitle">Upload a Sophos XG/SFOS configuration backup to generate a security audit report.</p>
+
+  <form id="uploadForm" action="/analyze" method="post" enctype="multipart/form-data">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" name="config_file" id="fileInput" accept=".xml,.tar,.enc" required>
+      <div class="drop-icon">📂</div>
+      <div class="drop-text">Drop your <strong>.xml</strong> config file here<br>or <strong>click to browse</strong></div>
+      <div class="drop-hint">Sophos XG / SFOS full configuration backup</div>
+      <div class="file-name" id="fileName"></div>
+    </div>
+
+    <div class="error" id="errorBox"></div>
+
+    <button type="submit" class="btn" id="submitBtn" disabled>Analyze Configuration</button>
+
+    <div class="progress" id="progress">
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+      <div class="progress-text">Parsing configuration and running policy checks…</div>
+    </div>
+  </form>
+
+  <div class="features">
+    <div class="feature"><div class="icon">🔥</div><div class="label">Firewall Rules</div></div>
+    <div class="feature"><div class="icon">🔐</div><div class="label">VPN Crypto</div></div>
+    <div class="feature"><div class="icon">⚙️</div><div class="label">Admin Access</div></div>
+    <div class="feature"><div class="icon">📋</div><div class="label">Logging</div></div>
+    <div class="feature"><div class="icon">🌐</div><div class="label">NAT Rules</div></div>
+  </div>
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileName  = document.getElementById('fileName');
+const submitBtn = document.getElementById('submitBtn');
+const form      = document.getElementById('uploadForm');
+const progress  = document.getElementById('progress');
+const errorBox  = document.getElementById('errorBox');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) {
+    fileName.textContent = '✔ ' + fileInput.files[0].name;
+    fileName.style.display = 'block';
+    submitBtn.disabled = false;
+  }
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  fileInput.files = e.dataTransfer.files;
+  fileInput.dispatchEvent(new Event('change'));
+});
+
+form.addEventListener('submit', e => {
+  errorBox.style.display = 'none';
+  submitBtn.disabled = true;
+  progress.style.display = 'block';
+});
+</script>
+</body>
+</html>
