@@ -42,6 +42,7 @@ body.web{background:#e8eaed}
 .btn{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;
   border-radius:4px;font-size:0.73rem;font-weight:600;text-decoration:none;border:none;cursor:pointer}
 .btn-green{background:#1e8449;color:#fff}.btn-green:hover{background:#196f3d}
+.btn-orange{background:#b7500a;color:#fff}.btn-orange:hover{background:#9a420a}
 .btn-blue{background:#1f618d;color:#fff}.btn-blue:hover{background:#1a5276}
 
 /* Wrap */
@@ -370,11 +371,171 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   .pdf-refs li::before{content:"→ "}
 
   footer{display:none}
+
+  /* ── Executive PDF styles ────────────────────────────────── */
+  .pdf-exec-cover{background:#1a252f!important;color:#fff!important;
+    padding:18pt 20pt;margin-bottom:16pt}
+  .pdf-exec-cover h1{font-size:17pt;font-weight:800;color:#fff!important;margin-bottom:3pt}
+  .pdf-exec-cover .sub{font-size:9pt;color:#8fa8b8;margin-bottom:10pt}
+  .pdf-exec-cover .meta{font-size:8pt;color:#8fa8b8;line-height:2}
+  .pdf-exec-cover .meta strong{color:#cdd9e5}
+
+  .pdf-exec-score-block{display:inline-block;background:#fff!important;
+    border-radius:4pt;padding:8pt 16pt;margin-top:10pt;vertical-align:top}
+  .pdf-exec-score-num{font-size:28pt;font-weight:900;line-height:1}
+  .pdf-exec-score-denom{font-size:9pt;color:#6c757d}
+  .pdf-exec-rating{font-size:11pt;font-weight:700;margin-top:2pt}
+
+  .pdf-exec-counts{width:100%;border-collapse:collapse;margin-bottom:14pt;table-layout:fixed}
+  .pdf-exec-counts td{border:1pt solid #dee2e8;padding:8pt 6pt;text-align:center;
+    background:#fafbfc!important}
+  .pdf-exec-counts .cn{font-size:22pt;font-weight:900;line-height:1;display:block}
+  .pdf-exec-counts .cl{font-size:7.5pt;text-transform:uppercase;letter-spacing:.4pt;
+    color:#6c757d;display:block;margin-top:3pt}
+
+  .pdf-exec-summary{width:100%;border-collapse:collapse;margin-bottom:14pt;
+    border:1pt solid #dee2e8;table-layout:fixed}
+  .pdf-exec-summary th{background:#f4f6f8!important;font-weight:700;font-size:7.5pt;
+    text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;padding:6pt 9pt;
+    width:90pt;border-bottom:1pt solid #dee2e8;border-right:1pt solid #dee2e8;vertical-align:top}
+  .pdf-exec-summary td{padding:6pt 9pt;font-size:8.5pt;border-bottom:1pt solid #dee2e8;vertical-align:top}
+  .pdf-exec-summary tr:last-child th,.pdf-exec-summary tr:last-child td{border-bottom:none}
+
+  .pdf-exec-findings{width:100%;border-collapse:collapse;font-size:8pt;table-layout:fixed}
+  .pdf-exec-findings th{background:#1a252f!important;color:#fff!important;padding:5pt 7pt;
+    font-size:7.5pt;text-transform:uppercase;letter-spacing:.3pt;font-weight:700;
+    border:1pt solid #dee2e8;text-align:left}
+  .pdf-exec-findings td{padding:5pt 7pt;border:1pt solid #dee2e8;vertical-align:top;
+    word-wrap:break-word;overflow-wrap:break-word;line-height:1.45}
+  .pdf-exec-findings tr:nth-child(even) td{background:#fafbfc!important}
+  .pdf-exec-findings tr{break-inside:avoid}
+  .pdf-exec-findings th:nth-child(1),.pdf-exec-findings td:nth-child(1){width:14%}
+  .pdf-exec-findings th:nth-child(2),.pdf-exec-findings td:nth-child(2){width:28%}
+  .pdf-exec-findings th:nth-child(3),.pdf-exec-findings td:nth-child(3){width:20%}
+  .pdf-exec-findings th:nth-child(4),.pdf-exec-findings td:nth-child(4){width:38%}
+
+  .pef-Critical{color:#c0392b!important;font-weight:700}
+  .pef-High    {color:#d35400!important;font-weight:700}
+  .pef-Medium  {color:#b7950b!important;font-weight:700}
+  .pef-Low     {color:#2471a3!important;font-weight:700}
+  .pef-Info    {color:#717d7e!important;font-weight:700}
+
+  .pdf-section-head{font-size:9.5pt;font-weight:800;text-transform:uppercase;
+    letter-spacing:.4pt;color:#1a252f;border-bottom:1.5pt solid #1a252f;
+    padding-bottom:3pt;margin:14pt 0 6pt}
 }
 </style>
 </head>
 
-{% if pdf_mode %}
+{% if pdf_mode and exec_mode %}
+{# ══════════════════════════════════════════════════════════════
+   EXECUTIVE PDF  — Compact ~3-page summary
+══════════════════════════════════════════════════════════════ #}
+<body>
+
+<!-- Cover -->
+<div class="pdf-exec-cover">
+  <h1>Firewall Security Assessment</h1>
+  <div class="sub">Executive Summary — Sophos XG / SFOS Policy &amp; Configuration Audit</div>
+  <div class="meta">
+    Document: <strong>{{ filename }}</strong> &nbsp;&nbsp;
+    Generated: <strong>{{ generated }}</strong> &nbsp;&nbsp;
+    Classification: <strong>CONFIDENTIAL</strong>
+  </div>
+</div>
+
+<!-- Counts -->
+<table class="pdf-exec-counts">
+  <tr>
+    <td><span class="cn cn-c">{{ counts.Critical }}</span><span class="cl">Critical</span></td>
+    <td><span class="cn cn-h">{{ counts.High }}</span><span class="cl">High</span></td>
+    <td><span class="cn cn-m">{{ counts.Medium }}</span><span class="cl">Medium</span></td>
+    <td><span class="cn cn-l">{{ counts.Low }}</span><span class="cl">Low</span></td>
+    <td><span class="cn cn-i">{{ counts.Info }}</span><span class="cl">Info</span></td>
+  </tr>
+</table>
+
+<!-- Executive summary table -->
+<table class="pdf-exec-summary">
+  <tr>
+    <th>Overall Risk</th>
+    <td>
+      <span class="pdf-risk-{{ exec.rating }}">{{ exec.rating }}</span>
+      <span class="pdf-score-box psb-{{ exec.rating }}" style="margin-left:8pt">Score {{ exec.score }} / 100</span>
+    </td>
+  </tr>
+  <tr>
+    <th>Risk Posture</th>
+    <td>{{ exec.posture }}</td>
+  </tr>
+  {% if exec.immediate %}
+  <tr>
+    <th>Immediate Actions</th>
+    <td>
+      <ul style="margin:0;padding-left:11pt;font-size:8pt;line-height:1.9">
+        {% for item in exec.immediate %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+    </td>
+  </tr>
+  {% endif %}
+  <tr>
+    <th>Audit Scope</th>
+    <td style="font-size:8pt;color:#6c757d">
+      Firewall Rules: <strong style="color:#1c2833">{{ stats.firewall_rules }}</strong> &nbsp;·&nbsp;
+      NAT Rules: <strong style="color:#1c2833">{{ stats.nat_rules }}</strong> &nbsp;·&nbsp;
+      IPSec Tunnels: <strong style="color:#1c2833">{{ stats.vpn_ipsec }}</strong> &nbsp;·&nbsp;
+      SSL VPN Profiles: <strong style="color:#1c2833">{{ stats.vpn_ssl }}</strong> &nbsp;·&nbsp;
+      Syslog Servers: <strong style="color:#1c2833">{{ stats.syslog_servers }}</strong> &nbsp;·&nbsp;
+      Certificates: <strong style="color:#1c2833">{{ stats.certificates }}</strong>
+    </td>
+  </tr>
+  <tr>
+    <th>Policy Findings</th>
+    <td style="font-size:8pt">
+      Critical: <strong>{{ exec.policy_counts.Critical }}</strong> &nbsp;
+      High: <strong>{{ exec.policy_counts.High }}</strong> &nbsp;
+      Medium: <strong>{{ exec.policy_counts.Medium }}</strong> &nbsp;
+      Low: <strong>{{ exec.policy_counts.Low }}</strong>
+    </td>
+  </tr>
+  <tr>
+    <th>Config Findings</th>
+    <td style="font-size:8pt">
+      Critical: <strong>{{ exec.config_counts.Critical }}</strong> &nbsp;
+      High: <strong>{{ exec.config_counts.High }}</strong> &nbsp;
+      Medium: <strong>{{ exec.config_counts.Medium }}</strong> &nbsp;
+      Low: <strong>{{ exec.config_counts.Low }}</strong>
+    </td>
+  </tr>
+</table>
+
+<!-- Findings summary table -->
+<div class="pdf-section-head">Findings Summary</div>
+<table class="pdf-exec-findings">
+  <tr>
+    <th>Severity</th>
+    <th>Finding</th>
+    <th>Category</th>
+    <th>Recommendation</th>
+  </tr>
+  {% for severity in ['Critical','High','Medium','Low','Info'] %}
+  {% for f in findings | selectattr('severity.value','equalto',severity) | list %}
+  <tr>
+    <td><span class="pef-{{ f.severity.value }}">{{ f.severity.value }}</span></td>
+    <td><strong>{{ f.title }}</strong>
+      {% set ac = (f.affected_rules|length) if f.affected_rules else (f.affected|length) %}
+      {% if ac %}<br><span style="font-size:7pt;color:#888">{{ ac }} affected</span>{% endif %}
+    </td>
+    <td style="font-size:7.5pt;color:#555">{{ f.category }}</td>
+    <td style="font-size:7.5pt">{{ f.recommendation | truncate(200, True, '…') }}</td>
+  </tr>
+  {% endfor %}
+  {% endfor %}
+</table>
+
+</body>
+
+{% elif pdf_mode %}
 {# ══════════════════════════════════════════════════════════════
    PDF BODY  — WeasyPrint table-based layout
 ══════════════════════════════════════════════════════════════ #}
@@ -534,7 +695,8 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 </header>
 
 <div class="action-bar web-only">
-  <a class="btn btn-green" href="/report/{{ token }}/pdf">⬇ Export PDF</a>
+  <a class="btn btn-green" href="/report/{{ token }}/pdf">⬇ Technical PDF</a>
+  <a class="btn btn-orange" href="/report/{{ token }}/pdf/executive">⬇ Executive PDF</a>
   <a class="btn btn-blue"  href="/">↩ New Analysis</a>
 </div>
 
