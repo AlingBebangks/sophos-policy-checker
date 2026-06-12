@@ -189,6 +189,9 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
    PDF STYLES  (WeasyPrint-safe — real <table> elements only)
 ═══════════════════════════════════════════════════════════ */
 @media print {
+  /* Preserve background colours and borders in print/PDF output */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+
   .web-only{display:none!important}
   .pdf-only{display:block!important}
 
@@ -204,112 +207,141 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   body{font-family:Arial,sans-serif;font-size:9pt;color:#1c2833;background:#fff;line-height:1.45}
   h1,h2,h3{font-family:Arial,sans-serif}
 
-  /* Cover strip */
-  .pdf-cover{background:#1a252f;color:#fff;padding:14pt 18pt;margin-bottom:14pt}
-  .pdf-cover h1{font-size:15pt;font-weight:700;margin-bottom:2pt;color:#fff}
+  /* ── Cover strip ─────────────────────────────────────────── */
+  .pdf-cover{background:#1a252f!important;color:#fff!important;padding:14pt 18pt;margin-bottom:14pt}
+  .pdf-cover h1{font-size:15pt;font-weight:700;margin-bottom:2pt;color:#fff!important}
   .pdf-cover .sub{font-size:8.5pt;color:#8fa8b8;margin-bottom:8pt}
-  .pdf-meta-table{width:100%;border-collapse:collapse;font-size:8pt;color:#8fa8b8}
-  .pdf-meta-table td{padding:1.5pt 0}
+  .pdf-meta-table{width:100%;border-collapse:collapse;font-size:8pt;color:#8fa8b8;table-layout:fixed}
+  .pdf-meta-table td{padding:1.5pt 0;word-wrap:break-word}
   .pdf-meta-table td:last-child{text-align:right;color:#cdd9e5}
 
-  /* Exec summary */
-  .pdf-exec-table{width:100%;border-collapse:collapse;margin-bottom:12pt;border:1pt solid #dee2e8}
+  /* ── Executive summary ───────────────────────────────────── */
+  .pdf-exec-table{width:100%;border-collapse:collapse;margin-bottom:12pt;
+    border:1pt solid #dee2e8;table-layout:fixed}
   .pdf-exec-table td,.pdf-exec-table th{padding:6pt 9pt;vertical-align:top;
-    border-bottom:1pt solid #dee2e8;font-size:8.5pt}
-  .pdf-exec-table th{background:#f4f6f8;font-weight:700;font-size:7.5pt;
+    border-bottom:1pt solid #dee2e8;font-size:8.5pt;
+    word-wrap:break-word;overflow-wrap:break-word}
+  .pdf-exec-table th{background:#f4f6f8!important;font-weight:700;font-size:7.5pt;
     text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;width:110pt}
   .pdf-exec-table tr:last-child td,.pdf-exec-table tr:last-child th{border-bottom:none}
 
-  /* Risk badge */
-  .pdf-risk-Critical{color:#c0392b;font-weight:700;font-size:12pt}
-  .pdf-risk-High    {color:#d35400;font-weight:700;font-size:12pt}
-  .pdf-risk-Medium  {color:#b7950b;font-weight:700;font-size:12pt}
-  .pdf-risk-Low     {color:#2471a3;font-weight:700;font-size:12pt}
-  .pdf-risk-Passed  {color:#1e8449;font-weight:700;font-size:12pt}
+  /* ── Risk badge ──────────────────────────────────────────── */
+  .pdf-risk-Critical{color:#c0392b!important;font-weight:700;font-size:12pt}
+  .pdf-risk-High    {color:#d35400!important;font-weight:700;font-size:12pt}
+  .pdf-risk-Medium  {color:#b7950b!important;font-weight:700;font-size:12pt}
+  .pdf-risk-Low     {color:#2471a3!important;font-weight:700;font-size:12pt}
+  .pdf-risk-Passed  {color:#1e8449!important;font-weight:700;font-size:12pt}
 
-  /* Count grid */
-  .pdf-counts{width:100%;border-collapse:collapse;margin-bottom:12pt}
-  .pdf-counts td{border:1pt solid #dee2e8;padding:6pt 8pt;text-align:center;width:20%;
-    background:#fafbfc}
+  /* ── Count grid ──────────────────────────────────────────── */
+  .pdf-counts{width:100%;border-collapse:collapse;margin-bottom:12pt;table-layout:fixed}
+  .pdf-counts td{border:1pt solid #dee2e8;padding:6pt 8pt;text-align:center;
+    background:#fafbfc!important}
   .pdf-counts .cn{font-size:18pt;font-weight:800;line-height:1;display:block}
   .pdf-counts .cl{font-size:7pt;text-transform:uppercase;letter-spacing:.4pt;
     color:#6c757d;display:block;margin-top:2pt}
-  .cn-c{color:#c0392b}.cn-h{color:#d35400}.cn-m{color:#b7950b}
-  .cn-l{color:#2471a3}.cn-i{color:#717d7e}
+  .cn-c{color:#c0392b!important}.cn-h{color:#d35400!important}
+  .cn-m{color:#b7950b!important}.cn-l{color:#2471a3!important}.cn-i{color:#717d7e!important}
 
-  /* Section heading */
-  .pdf-sev-head{margin:12pt 0 5pt;page-break-after:avoid}
-  .pdf-sev-label{display:inline-block;padding:2pt 9pt;
-    font-size:7pt;font-weight:800;text-transform:uppercase;letter-spacing:.5pt;
-    border:1pt solid currentColor}
-  .psh-Critical{background:#fdf0ef;color:#c0392b}
-  .psh-High    {background:#fef3ea;color:#d35400}
-  .psh-Medium  {background:#fefce7;color:#b7950b}
-  .psh-Low     {background:#eaf4fc;color:#2471a3}
-  .psh-Info    {background:#f4f6f7;color:#717d7e}
-  .pdf-sev-hr{border:none;border-top:1pt solid #dee2e8;margin:3pt 0 6pt}
+  /* ── Section heading ─────────────────────────────────────── */
+  .pdf-sev-head{margin:12pt 0 4pt;page-break-after:avoid;break-after:avoid}
+  /* Target the span directly — it has the psh-* class but not pdf-sev-label */
+  .pdf-sev-head span{display:inline-block;padding:2pt 9pt;font-size:7.5pt;
+    font-weight:800;text-transform:uppercase;letter-spacing:.5pt;border:1pt solid currentColor}
+  /* Target the <hr> via descendant — no class on the element in the template */
+  .pdf-sev-head hr{border:none;border-top:1pt solid #dee2e8;margin:3pt 0 5pt}
+  .psh-Critical{background:#fdf0ef!important;color:#c0392b!important}
+  .psh-High    {background:#fef3ea!important;color:#d35400!important}
+  .psh-Medium  {background:#fefce7!important;color:#b7950b!important}
+  .psh-Low     {background:#eaf4fc!important;color:#2471a3!important}
+  .psh-Info    {background:#f4f6f7!important;color:#717d7e!important}
 
-  /* Finding wrapper — NO overflow:hidden, NO border-radius (WeasyPrint chokes on both) */
-  .pdf-finding{border:1pt solid #dee2e8;border-left:3pt solid #aaa;margin-bottom:8pt}
-  .pdf-finding-Critical{border-left-color:#c0392b}
-  .pdf-finding-High    {border-left-color:#d35400}
-  .pdf-finding-Medium  {border-left-color:#b7950b}
-  .pdf-finding-Low     {border-left-color:#2471a3}
-  .pdf-finding-Info    {border-left-color:#717d7e}
+  /* ── Finding wrapper ─────────────────────────────────────── */
+  .pdf-finding{border:1pt solid #dee2e8;border-left:3pt solid #aaa;
+    margin-bottom:8pt;break-inside:avoid}
+  .pdf-finding-Critical{border-left-color:#c0392b!important}
+  .pdf-finding-High    {border-left-color:#d35400!important}
+  .pdf-finding-Medium  {border-left-color:#b7950b!important}
+  .pdf-finding-Low     {border-left-color:#2471a3!important}
+  .pdf-finding-Info    {border-left-color:#717d7e!important}
 
-  /* Finding header — REAL table */
-  .pdf-fh-tbl{width:100%;border-collapse:collapse;background:#f8f9fa;
-    border-bottom:1pt solid #dee2e8}
-  .pdf-fh-tbl td{padding:5pt 8pt;vertical-align:middle}
-  .pdf-fh-badge{width:60pt}
-  .pdf-fh-cat{width:95pt;text-align:right;font-size:7pt;color:#6c757d}
+  /* ── Finding header table ────────────────────────────────── */
+  .pdf-fh-tbl{width:100%;border-collapse:collapse;background:#f8f9fa!important;
+    border-bottom:1pt solid #dee2e8;table-layout:fixed}
+  .pdf-fh-tbl td{padding:5pt 8pt;vertical-align:middle;
+    word-wrap:break-word;overflow-wrap:break-word}
+  .pdf-fh-badge{width:64pt}
+  .pdf-fh-cat{width:105pt;text-align:right;font-size:7pt;color:#6c757d}
 
-  .pdf-fbadge{display:inline-block;padding:2pt 6pt;
-    font-size:6.5pt;font-weight:800;text-transform:uppercase;letter-spacing:.4pt;
-    border:1pt solid currentColor}
-  .pfb-Critical{background:#fdf0ef;color:#c0392b}
-  .pfb-High    {background:#fef3ea;color:#d35400}
-  .pfb-Medium  {background:#fefce7;color:#b7950b}
-  .pfb-Low     {background:#eaf4fc;color:#2471a3}
-  .pfb-Info    {background:#f4f6f7;color:#717d7e}
+  .pdf-fbadge{display:inline-block;padding:2pt 6pt;font-size:6.5pt;font-weight:800;
+    text-transform:uppercase;letter-spacing:.4pt;border:1pt solid currentColor}
+  .pfb-Critical{background:#fdf0ef!important;color:#c0392b!important}
+  .pfb-High    {background:#fef3ea!important;color:#d35400!important}
+  .pfb-Medium  {background:#fefce7!important;color:#b7950b!important}
+  .pfb-Low     {background:#eaf4fc!important;color:#2471a3!important}
+  .pfb-Info    {background:#f4f6f7!important;color:#717d7e!important}
 
   .pdf-f-title{font-weight:700;font-size:8.5pt}
   .pdf-f-ac{font-size:7pt;color:#888;margin-left:5pt}
 
-  /* Finding body — REAL table */
-  .pdf-fb-tbl{width:100%;border-collapse:collapse}
-  .pdf-fb-tbl th{width:80pt;padding:5pt 8pt;font-size:7pt;font-weight:700;
-    text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;background:#fafbfc;
-    border-bottom:1pt solid #dee2e8;border-right:1pt solid #dee2e8;vertical-align:top;
-    text-align:left}
+  /* ── Finding body table ──────────────────────────────────── */
+  /* table-layout:fixed ensures the label column stays at exactly 82pt */
+  .pdf-fb-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+  .pdf-fb-tbl th{width:82pt;padding:5pt 8pt;font-size:7pt;font-weight:700;
+    text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;
+    background:#fafbfc!important;border-bottom:1pt solid #dee2e8;
+    border-right:1pt solid #dee2e8;vertical-align:top;text-align:left;
+    word-wrap:break-word}
   .pdf-fb-tbl td{padding:5pt 8pt;font-size:8pt;line-height:1.5;
-    border-bottom:1pt solid #dee2e8;vertical-align:top}
+    border-bottom:1pt solid #dee2e8;vertical-align:top;
+    word-wrap:break-word;overflow-wrap:break-word}
   .pdf-fb-tbl tr:last-child th,.pdf-fb-tbl tr:last-child td{border-bottom:none}
+  /* Keep each label+value row together across pages */
+  .pdf-fb-tbl tr{break-inside:avoid}
 
-  /* Location box */
-  .pdf-loc{background:#f0f7ff;border-left:2pt solid #2471a3;
+  /* ── Location box ────────────────────────────────────────── */
+  .pdf-loc{background:#f0f7ff!important;border-left:2pt solid #2471a3!important;
     padding:4pt 7pt;font-size:7.5pt;line-height:1.6;color:#1a5276;
-    font-family:monospace;white-space:pre-wrap}
+    font-family:monospace;white-space:pre-wrap;word-wrap:break-word}
 
-  /* Affected chips */
-  .pdf-chip{display:inline-block;background:#f0f3f7;border:1pt solid #dee2e8;
-    padding:1pt 5pt;margin:1pt 2pt;font-family:monospace;font-size:7.5pt}
+  /* ── Affected chips ──────────────────────────────────────── */
+  .pdf-chip{display:inline-block;background:#f0f3f7!important;
+    border:1pt solid #dee2e8;padding:1pt 5pt;margin:1pt 2pt;
+    font-family:monospace;font-size:7.5pt;word-break:break-word}
 
-  /* Rule table */
-  .pdf-rule-tbl{width:100%;border-collapse:collapse;font-size:7.5pt;margin-top:2pt}
-  .pdf-rule-tbl th{background:#f4f6f8;padding:3pt 5pt;text-align:left;
-    font-size:7pt;text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;
-    border:1pt solid #dee2e8;font-weight:700}
-  .pdf-rule-tbl td{padding:3pt 5pt;border:1pt solid #dee2e8;vertical-align:top}
-  .pdf-rule-tbl tr:nth-child(even) td{background:#fafbfc}
-  .tag-a{color:#1e8449;font-weight:700}
-  .tag-d{color:#c0392b;font-weight:700}
-  .tag-any-p{color:#c0392b;font-weight:700}
-  .tag-warn-p{color:#d35400;font-weight:600}
-  .tag-off-p{color:#c0392b}
-  .tag-on-p{color:#1e8449}
+  /* ── Rule table — fixed layout with proportional columns ─── */
+  /* Available width ≈ A4 content (510pt) − th label (82pt) ≈ 428pt        */
+  /* Proportions: # 5 | Name 23 | Action 9 | Src 17 | Dst 17 | Svc 22 | Log 7 */
+  .pdf-rule-tbl{width:100%;border-collapse:collapse;font-size:7pt;
+    margin-top:2pt;table-layout:fixed}
+  .pdf-rule-tbl th{background:#f4f6f8!important;padding:3pt 4pt;text-align:left;
+    font-size:6.5pt;text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;
+    border:1pt solid #dee2e8;font-weight:700;word-wrap:break-word}
+  .pdf-rule-tbl td{padding:3pt 4pt;border:1pt solid #dee2e8;vertical-align:top;
+    word-wrap:break-word;overflow-wrap:break-word}
+  .pdf-rule-tbl tr:nth-child(even) td{background:#fafbfc!important}
+  .pdf-rule-tbl tr{break-inside:avoid}
 
-  .pdf-refs{font-size:7.5pt;color:#2471a3;margin:0;padding:0;list-style:none;line-height:1.8}
+  /* Column widths as % so they scale with the containing cell */
+  .pdf-rule-tbl th:nth-child(1),.pdf-rule-tbl td:nth-child(1){width:5%}   /* # */
+  .pdf-rule-tbl th:nth-child(2),.pdf-rule-tbl td:nth-child(2){width:23%}  /* Name */
+  .pdf-rule-tbl th:nth-child(3),.pdf-rule-tbl td:nth-child(3){width:9%}   /* Action */
+  .pdf-rule-tbl th:nth-child(4),.pdf-rule-tbl td:nth-child(4){width:17%}  /* Source */
+  .pdf-rule-tbl th:nth-child(5),.pdf-rule-tbl td:nth-child(5){width:17%}  /* Destination */
+  .pdf-rule-tbl th:nth-child(6),.pdf-rule-tbl td:nth-child(6){width:22%}  /* Services */
+  .pdf-rule-tbl th:nth-child(7),.pdf-rule-tbl td:nth-child(7){width:7%}   /* Log */
+
+  /* Colour tokens inside rule table */
+  .tag-a    {color:#1e8449!important;font-weight:700}
+  .tag-d    {color:#c0392b!important;font-weight:700}
+  .tag-any-p  {color:#c0392b!important;font-weight:700}
+  .tag-warn-p {color:#d35400!important;font-weight:600}
+  .tag-off-p  {color:#c0392b!important}
+  .tag-on-p   {color:#1e8449!important}
+
+  /* ── References list ─────────────────────────────────────── */
+  .pdf-refs{font-size:7pt;color:#2471a3;margin:0;padding:0;
+    list-style:none;line-height:1.7}
+  .pdf-refs li{word-wrap:break-word;overflow-wrap:break-word}
   .pdf-refs li::before{content:"→ "}
 
   footer{display:none}
@@ -413,13 +445,13 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
       <td>
         <table class="pdf-rule-tbl">
           <tr>
-            <th style="width:22pt">#</th>
+            <th>#</th>
             <th>Rule Name</th>
-            <th style="width:44pt">Action</th>
+            <th>Action</th>
             <th>Source</th>
             <th>Destination</th>
             <th>Services</th>
-            <th style="width:22pt">Log</th>
+            <th>Log</th>
           </tr>
           {% for r in f.affected_rules %}
           {% set action=r.action|lower %}{% set log=r.log_traffic|lower %}
