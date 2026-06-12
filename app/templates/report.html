@@ -568,11 +568,21 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   <tr>
     <th>Overall Risk</th>
     <td>
-      <span class="pdf-risk-{{ exec.rating }}">{{ exec.rating }}</span>
-      <span class="pdf-score-box psb-{{ exec.rating }}">Score {{ exec.score }} / 100</span>
-      <span style="font-size:7.5pt;color:#6c757d;margin-left:8pt">
-        Policy: {{ exec.policy_total }} findings &nbsp;·&nbsp; Config: {{ exec.config_total }} findings
-      </span>
+      <table style="border-collapse:collapse;width:auto">
+        <tr>
+          <td style="padding:0 10pt 0 0;vertical-align:middle">
+            <span class="pdf-risk-{{ exec.rating }}">{{ exec.rating }}</span>
+          </td>
+          <td style="padding:0 10pt 0 0;vertical-align:middle">
+            <table style="border-collapse:collapse;border:1.5pt solid currentColor" class="psb-{{ exec.rating }}">
+              <tr><td style="padding:2pt 8pt;font-size:9pt;font-weight:700">Score {{ exec.score }} / 100</td></tr>
+            </table>
+          </td>
+          <td style="vertical-align:middle;font-size:7.5pt;color:#6c757d">
+            Policy: {{ exec.policy_total }} findings &nbsp;·&nbsp; Config: {{ exec.config_total }} findings
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
   <tr>
