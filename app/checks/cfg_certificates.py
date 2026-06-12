@@ -35,6 +35,7 @@ def run(cfg) -> list[Finding]:
             detail="No Certificate elements were detected. The device may be using the default self-signed certificate.",
             recommendation="Review certificate configuration under System → Certificates.",
             location="System → Certificates → review installed certificates",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
         return findings
 
@@ -98,6 +99,7 @@ def run(cfg) -> list[Finding]:
             ],
             location="System → Certificates → find expired cert → Upload/Replace → Apply",
             affected=expired,
+            exploitability="Medium", impact_scope="Host", exposure="External",
         ))
 
     if expiring_crit:
@@ -118,6 +120,7 @@ def run(cfg) -> list[Finding]:
             ],
             location="System → Certificates → select cert → Renew/Replace → Apply",
             affected=expiring_crit,
+            exploitability="Medium", impact_scope="Host", exposure="External",
         ))
 
     if expiring_warn:
@@ -133,6 +136,7 @@ def run(cfg) -> list[Finding]:
             ],
             location="System → Certificates → select cert → Renew → Apply",
             affected=expiring_warn,
+            exploitability="Low", impact_scope="Host", exposure="External",
         ))
 
     if self_signed:
@@ -158,6 +162,7 @@ def run(cfg) -> list[Finding]:
             ],
             location="System → Certificates → Upload a CA-signed certificate → bind it to the relevant service → Apply",
             affected=self_signed,
+            exploitability="Medium", impact_scope="Host", exposure="Internal",
         ))
 
     if weak_sig:
@@ -181,6 +186,7 @@ def run(cfg) -> list[Finding]:
             ],
             location="System → Certificates → replace cert → upload SHA-256 signed certificate → Apply",
             affected=weak_sig,
+            exploitability="Medium", impact_scope="Host", exposure="External",
         ))
 
     if small_key:
@@ -202,6 +208,7 @@ def run(cfg) -> list[Finding]:
             ],
             location="System → Certificates → replace cert → generate 2048+ bit key → Apply",
             affected=small_key,
+            exploitability="Medium", impact_scope="Host", exposure="External",
         ))
 
     return findings

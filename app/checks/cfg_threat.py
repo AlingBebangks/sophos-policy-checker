@@ -29,6 +29,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-94 – Guide to IDS/IPS Systems",
             ],
             location="Intrusion prevention → IPS policies → Create policy → Apply to firewall rules",
+            exploitability="Low", impact_scope="Network", exposure="External",
         ))
     else:
         rules_without_ips = [
@@ -69,6 +70,7 @@ def run(cfg) -> list[Finding]:
                     "→ Edit rule → Security features → assign IPS policy → Save"
                 ),
                 affected=wan_rules_no_ips,
+                exploitability="High", impact_scope="Network", exposure="External",
             ))
         elif rules_without_ips:
             findings.append(Finding(
@@ -87,6 +89,7 @@ def run(cfg) -> list[Finding]:
                 ],
                 location="Firewall → Rules and policies → Edit rule → Security features → assign IPS → Save",
                 affected=rules_without_ips,
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
     # ── Antivirus ─────────────────────────────────────────────────────────────
@@ -110,6 +113,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 10.1 – Deploy and Maintain Anti-Malware Software",
             ],
             location="Web → Malware protection → Enable AV scanning\nEmail → Antivirus → Enable",
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
     else:
         status = _v(av, "Status", "Enable", "Enabled")
@@ -132,6 +136,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Control 10.1 – Deploy and Maintain Anti-Malware Software",
                 ],
                 location="Web → Malware protection → Enable AV\nEmail → Antivirus → Enable",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
         dual_scan = _v(av, "DualScan", "DualAV", "SecondaryEngine")
         if _off(dual_scan):
@@ -143,6 +148,7 @@ def run(cfg) -> list[Finding]:
                 recommendation="Enable dual-engine (Sophos + secondary) AV scanning if licensed.",
                 references=["CIS Control 10.1 – Deploy and Maintain Anti-Malware Software"],
                 location="Web → Malware protection → enable Dual scan option",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
 
     # ── Sandstorm ─────────────────────────────────────────────────────────────
@@ -165,6 +171,7 @@ def run(cfg) -> list[Finding]:
                 "OWASP A06:2021 – Vulnerable and Outdated Components",
             ],
             location="Web → Malware protection → Sandstorm → Enable\nEmail → Sandstorm → Enable",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
     else:
         status = _v(sandbox, "Status", "Enable", "Enabled", "State")
@@ -184,6 +191,7 @@ def run(cfg) -> list[Finding]:
                     "OWASP A06:2021 – Vulnerable and Outdated Components",
                 ],
                 location="Web → Malware protection → Sandstorm → Enable → Apply",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
 
     # ── Web Filtering ─────────────────────────────────────────────────────────
@@ -206,6 +214,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 9.3 – Maintain and Enforce Network-Based URL Filters",
             ],
             location="Web → Policies → Create web filter policy → Apply to firewall rules",
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
     else:
         rules_without_wf = [
@@ -239,6 +248,7 @@ def run(cfg) -> list[Finding]:
                     "→ Edit rule → Security features → assign Web filter policy → Save"
                 ),
                 affected=rules_without_wf,
+                exploitability="Medium", impact_scope="Network", exposure="Internal",
             ))
 
     # ── Application Control ───────────────────────────────────────────────────
@@ -261,6 +271,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 9.2 – Ensure Only Approved Ports/Services/Protocols Are Running",
             ],
             location="Firewall → Rules and policies → Application filter → Create policy → Apply to firewall rules",
+            exploitability="Low", impact_scope="Network", exposure="Internal",
         ))
 
     # ── SSL/TLS Inspection ────────────────────────────────────────────────────
@@ -287,6 +298,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 13.7 – Deploy a Host-Based Intrusion Detection Solution",
             ],
             location="Web → SSL/TLS inspection → Create inspection rule → Apply to firewall rules",
+            exploitability="Low", impact_scope="Network", exposure="External",
         ))
     else:
         status = _v(ssl, "Status", "Enable", "Enabled", "State")
@@ -308,6 +320,7 @@ def run(cfg) -> list[Finding]:
                     "OWASP A05:2021 – Security Misconfiguration",
                 ],
                 location="Web → SSL/TLS inspection → Enable → Apply",
+                exploitability="Low", impact_scope="Network", exposure="External",
             ))
 
     # ── DoS / Flood Protection ────────────────────────────────────────────────
@@ -336,9 +349,9 @@ def run(cfg) -> list[Finding]:
                 "CIS Controls v8 – 13.4 Perform Traffic Filtering Between Network Segments",
             ],
             location="Firewall → Flood protection → Enable SYN/UDP/ICMP flood protection → Apply",
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
     else:
-        # Check each flood type's Apply Flag
         _FLOOD_TYPES = [
             ("SYNFlood",   "SYNFlood",   "SYN"),
             ("UDPFlood",   "UDPFlood",   "UDP"),
@@ -353,15 +366,13 @@ def run(cfg) -> list[Finding]:
             apply_flag = section.get("ApplyFlag") or section.get("Enable") or section.get("Status") or ""
             if _off(str(apply_flag)):
                 disabled_floods.append(proto)
-            # Also check flat-key layout (some firmware versions)
             flat_flag = dos.get(f"{key}ApplyFlag") or dos.get(f"{key}Enable") or ""
             if flat_flag and _off(str(flat_flag)) and proto not in disabled_floods:
                 disabled_floods.append(proto)
 
-        # Check top-level enable flag
         top_flag = _v(dos, "Enable", "Status", "Enabled", "FloodProtection")
         if _off(top_flag) and not disabled_floods:
-            disabled_floods = ["SYN", "UDP", "ICMP", "IP"]  # all implicitly off
+            disabled_floods = ["SYN", "UDP", "ICMP", "IP"]
 
         if disabled_floods:
             findings.append(Finding(
@@ -395,6 +406,7 @@ def run(cfg) -> list[Finding]:
                     f"→ {' / '.join(disabled_floods)} flood → Enable → set ApplyFlag = On → Apply"
                 ),
                 affected=disabled_floods,
+                exploitability="High", impact_scope="Network", exposure="External",
             ))
 
     return findings

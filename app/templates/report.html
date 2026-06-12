@@ -57,7 +57,24 @@ body.web{background:#e8eaed}
 .risk-val{font-size:1.9rem;font-weight:800;line-height:1}
 .risk-val.Critical{color:var(--c)}.risk-val.High{color:var(--h)}
 .risk-val.Medium{color:var(--m)}.risk-val.Low{color:var(--l)}.risk-val.Passed{color:var(--pass)}
-.score-sub{font-size:0.68rem;color:var(--muted);margin-top:4px}
+
+/* Score gauge */
+.score-gauge{position:relative;width:86px;height:86px;margin:8px auto 4px}
+.score-gauge svg{width:86px;height:86px}
+.score-gauge-track{stroke:#e8eaed;stroke-width:7;fill:none}
+.score-gauge-fill{stroke-width:7;fill:none;stroke-linecap:round;
+  transform:rotate(-90deg);transform-origin:43px 43px;
+  transition:stroke-dashoffset .6s ease}
+.score-gauge-fill.Critical{stroke:var(--c)}.score-gauge-fill.High{stroke:var(--h)}
+.score-gauge-fill.Medium{stroke:var(--m)}.score-gauge-fill.Low{stroke:var(--l)}
+.score-gauge-fill.Passed{stroke:var(--pass)}
+.score-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;line-height:1}
+.score-num{font-size:1.45rem;font-weight:900}
+.score-num.Critical{color:var(--c)}.score-num.High{color:var(--h)}
+.score-num.Medium{color:var(--m)}.score-num.Low{color:var(--l)}.score-num.Passed{color:var(--pass)}
+.score-denom{font-size:0.58rem;color:var(--muted);display:block}
+.score-sub{font-size:0.65rem;color:var(--muted);margin-top:0}
 .sbar{width:100%;height:5px;background:#ecf0f1;border-radius:3px;overflow:hidden;margin-top:7px}
 .sbar-fill{height:100%;border-radius:3px}
 .sbar-fill.Critical{background:var(--c)}.sbar-fill.High{background:var(--h)}
@@ -225,12 +242,20 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
     text-transform:uppercase;letter-spacing:.3pt;color:#6c757d;width:110pt}
   .pdf-exec-table tr:last-child td,.pdf-exec-table tr:last-child th{border-bottom:none}
 
-  /* ── Risk badge ──────────────────────────────────────────── */
+  /* ── Risk badge / score highlight ───────────────────────── */
   .pdf-risk-Critical{color:#c0392b!important;font-weight:700;font-size:12pt}
   .pdf-risk-High    {color:#d35400!important;font-weight:700;font-size:12pt}
   .pdf-risk-Medium  {color:#b7950b!important;font-weight:700;font-size:12pt}
   .pdf-risk-Low     {color:#2471a3!important;font-weight:700;font-size:12pt}
   .pdf-risk-Passed  {color:#1e8449!important;font-weight:700;font-size:12pt}
+
+  .pdf-score-box{display:inline-block;padding:4pt 12pt;border-radius:3pt;
+    font-size:9pt;font-weight:700;margin-left:8pt;vertical-align:middle}
+  .psb-Critical{background:#fdf0ef!important;border:1.5pt solid #c0392b;color:#c0392b!important}
+  .psb-High    {background:#fef3ea!important;border:1.5pt solid #d35400;color:#d35400!important}
+  .psb-Medium  {background:#fefce7!important;border:1.5pt solid #b7950b;color:#b7950b!important}
+  .psb-Low     {background:#eaf4fc!important;border:1.5pt solid #2471a3;color:#2471a3!important}
+  .psb-Passed  {background:#eafaf1!important;border:1.5pt solid #1e8449;color:#1e8449!important}
 
   /* ── Count grid ──────────────────────────────────────────── */
   .pdf-counts{width:100%;border-collapse:collapse;margin-bottom:12pt;table-layout:fixed}
@@ -381,10 +406,13 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 <table class="pdf-exec-table">
   <tr>
     <th>Overall Risk</th>
-    <td><span class="pdf-risk-{{ exec.rating }}">{{ exec.rating }}</span>
-        &nbsp;&nbsp;<span style="font-size:8pt;color:#6c757d">Score {{ exec.score }}/100
-        &nbsp;·&nbsp; Policy: {{ exec.policy_total }} findings
-        &nbsp;·&nbsp; Config: {{ exec.config_total }} findings</span></td>
+    <td>
+      <span class="pdf-risk-{{ exec.rating }}">{{ exec.rating }}</span>
+      <span class="pdf-score-box psb-{{ exec.rating }}">Score {{ exec.score }} / 100</span>
+      <span style="font-size:7.5pt;color:#6c757d;margin-left:8pt">
+        Policy: {{ exec.policy_total }} findings &nbsp;·&nbsp; Config: {{ exec.config_total }} findings
+      </span>
+    </td>
   </tr>
   <tr>
     <th>Posture</th>
@@ -516,11 +544,23 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   <div class="exec-panel">
     <div class="exec-top">
       <div class="risk-col">
-        <div class="risk-lbl">Overall Risk</div>
-        <div class="risk-val {{ exec.rating }}">{{ exec.rating }}</div>
-        <div class="score-sub">Score {{ exec.score }}/100</div>
-        <div class="sbar"><div class="sbar-fill {{ exec.rating }}" style="width:{{ exec.score }}%"></div></div>
-        <div class="split-counts">
+        <div class="risk-lbl">Risk Score</div>
+        {% set circ = 3.14159 * 2 * 36 %}
+        {% set fill = circ * (1 - exec.score / 100) %}
+        <div class="score-gauge">
+          <svg viewBox="0 0 86 86" xmlns="http://www.w3.org/2000/svg">
+            <circle class="score-gauge-track" cx="43" cy="43" r="36"/>
+            <circle class="score-gauge-fill {{ exec.rating }}" cx="43" cy="43" r="36"
+              stroke-dasharray="{{ circ|round(2) }}"
+              stroke-dashoffset="{{ fill|round(2) }}"/>
+          </svg>
+          <div class="score-center">
+            <span class="score-num {{ exec.rating }}">{{ exec.score }}</span>
+            <span class="score-denom">/100</span>
+          </div>
+        </div>
+        <div class="risk-val {{ exec.rating }}" style="font-size:1.1rem;margin-top:4px">{{ exec.rating }}</div>
+        <div class="split-counts" style="margin-top:8px">
           <div class="split-row"><span>Policy</span><span>{{ exec.policy_total }} findings</span></div>
           <div class="split-row"><span>Config</span><span>{{ exec.config_total }} findings</span></div>
         </div>
@@ -548,14 +588,13 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 
   <!-- Inventory -->
   <div class="inv">
-    <span class="inv-lbl">Scope</span>
-    <span class="inv-tag">FW Rules <span>{{ stats.firewall_rules }}</span></span>
-    <span class="inv-tag">NAT <span>{{ stats.nat_rules }}</span></span>
-    <span class="inv-tag">IPSec <span>{{ stats.vpn_ipsec }}</span></span>
-    <span class="inv-tag">SSL VPN <span>{{ stats.vpn_ssl }}</span></span>
-    <span class="inv-tag">Syslog <span>{{ stats.syslog_servers }}</span></span>
-    <span class="inv-tag">Certs <span>{{ stats.certificates }}</span></span>
-    {% for s,c in stats.raw_sections.items() %}<span class="inv-tag">{{ s }} <span>{{ c }}</span></span>{% endfor %}
+    <span class="inv-lbl">Audit Scope</span>
+    <span class="inv-tag">Firewall Rules <span>{{ stats.firewall_rules }}</span></span>
+    <span class="inv-tag">NAT Rules <span>{{ stats.nat_rules }}</span></span>
+    <span class="inv-tag">IPSec Tunnels <span>{{ stats.vpn_ipsec }}</span></span>
+    <span class="inv-tag">SSL VPN Profiles <span>{{ stats.vpn_ssl }}</span></span>
+    <span class="inv-tag">Syslog Servers <span>{{ stats.syslog_servers }}</span></span>
+    <span class="inv-tag">Certificates <span>{{ stats.certificates }}</span></span>
   </div>
 
   <!-- Findings -->

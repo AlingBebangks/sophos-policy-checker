@@ -40,6 +40,7 @@ def run(cfg) -> list[Finding]:
                 f"{_ADMIN_NAV}\n"
                 "→ Find the zone row → uncheck 'HTTP' under the Admin column → Apply"
             ),
+            exploitability="Medium", impact_scope="Host", exposure="Adjacent",
         ))
 
     # ── Session timeout ───────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ def run(cfg) -> list[Finding]:
                     f"{_ADMIN_SETTINGS_NAV}\n"
                     "→ Scroll to 'Login security' → set 'Logout session after' to 15 minutes → Apply"
                 ),
+                exploitability="Medium", impact_scope="Host", exposure="Internal",
             ))
         elif timeout_int > 30:
             findings.append(Finding(
@@ -92,6 +94,7 @@ def run(cfg) -> list[Finding]:
                     f"{_ADMIN_SETTINGS_NAV}\n"
                     "→ Scroll to 'Login security' → reduce 'Logout session after' to 15 minutes → Apply"
                 ),
+                exploitability="Low", impact_scope="Host", exposure="Internal",
             ))
     except (ValueError, TypeError):
         pass
@@ -125,6 +128,7 @@ def run(cfg) -> list[Finding]:
                 f"{_ADMIN_SETTINGS_NAV}\n"
                 "→ Scroll to 'Password complexity' → enable and configure minimum requirements → Apply"
             ),
+            exploitability="Medium", impact_scope="Host", exposure="Internal",
         ))
 
     # ── Notification email ────────────────────────────────────────────────────
@@ -150,6 +154,7 @@ def run(cfg) -> list[Finding]:
                 "Administration → Notification settings\n"
                 "→ Enter email address under 'Administrator email' → Apply"
             ),
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     # ── Device access (zone-level admin access) ───────────────────────────────
@@ -190,6 +195,7 @@ def run(cfg) -> list[Finding]:
                         f"→ Find the '{zone}' zone row → uncheck 'HTTPS' and 'HTTP' "
                         "under the Admin column → Apply"
                     ),
+                    exploitability="High", impact_scope="Host", exposure="External",
                 ))
 
             if ssh.lower() not in ("disable", "disabled", "0", "false", "off", ""):
@@ -219,6 +225,7 @@ def run(cfg) -> list[Finding]:
                         f"{_ADMIN_NAV}\n"
                         f"→ Find the '{zone}' zone row → uncheck 'SSH' under the Admin column → Apply"
                     ),
+                    exploitability="High", impact_scope="Host", exposure="External",
                 ))
 
     if not cfg.admin_settings and not cfg.device_access:
@@ -228,6 +235,7 @@ def run(cfg) -> list[Finding]:
             title="Administration settings not found in config",
             detail="No AdministrationSettings or DeviceAccess elements were detected.",
             recommendation="Verify the backup is a full configuration export.",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     return findings

@@ -35,6 +35,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 6.5 – Require MFA for Administrative Access",
             ],
             location="Authentication → Multi-factor authentication\n→ Enable MFA → assign to admin profiles → Apply",
+            exploitability="High", impact_scope="Host", exposure="External",
         ))
     else:
         status = _v(mfa, "Status", "Enable", "Enabled", "State")
@@ -59,6 +60,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Control 6.5 – Require MFA for Administrative Access",
                 ],
                 location="Authentication → Multi-factor authentication → Enable → Apply",
+                exploitability="High", impact_scope="Host", exposure="External",
             ))
 
     # ── Password Policy ───────────────────────────────────────────────────────
@@ -78,6 +80,7 @@ def run(cfg) -> list[Finding]:
                 "OWASP A07:2021 – Identification and Authentication Failures",
             ],
             location="Authentication → Password policy → Configure complexity and minimum length → Apply",
+            exploitability="Medium", impact_scope="Host", exposure="Internal",
         ))
     else:
         min_len = _v(pp, "MinimumLength", "MinLength", "PasswordMinLength")
@@ -102,6 +105,7 @@ def run(cfg) -> list[Finding]:
                         "NIST SP 800-63B §5.1.1 – Memorized Secret Authenticators",
                     ],
                     location="Authentication → Password policy → Minimum length → set to 14+ → Apply",
+                    exploitability="Medium", impact_scope="Host", exposure="External",
                 ))
         except (ValueError, TypeError):
             pass
@@ -124,6 +128,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Control 5.2 – Use Unique Passwords",
                 ],
                 location="Authentication → Password policy → Enable complexity rules → Apply",
+                exploitability="Medium", impact_scope="Host", exposure="Internal",
             ))
 
         lockout = _v(pp, "AccountLockout", "LockoutThreshold", "MaxAttempts", "FailedAttempts")
@@ -147,6 +152,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Control 5.2 – Use Unique Passwords",
                 ],
                 location="Authentication → Password policy → Account lockout → Enable → set threshold to 5 → Apply",
+                exploitability="High", impact_scope="Host", exposure="External",
             ))
         else:
             try:
@@ -165,6 +171,7 @@ def run(cfg) -> list[Finding]:
                             "OWASP A07:2021 – Identification and Authentication Failures",
                         ],
                         location="Authentication → Password policy → Account lockout threshold → reduce to 5 → Apply",
+                        exploitability="Medium", impact_scope="Host", exposure="External",
                     ))
             except (ValueError, TypeError):
                 pass
@@ -188,6 +195,7 @@ def run(cfg) -> list[Finding]:
                     "NIST SP 800-63B §5.1.1",
                 ],
                 location="Authentication → Password policy → Password expiry → set to 90 days → Apply",
+                exploitability="Low", impact_scope="Host", exposure="Internal",
             ))
 
         history = _v(pp, "PasswordHistory", "HistoryCount", "ReuseCount")
@@ -207,6 +215,7 @@ def run(cfg) -> list[Finding]:
                         "NIST SP 800-63B §5.1.1",
                     ],
                     location="Authentication → Password policy → Password history → set to 10 → Apply",
+                    exploitability="Low", impact_scope="Host", exposure="Internal",
                 ))
         except (ValueError, TypeError):
             pass
@@ -232,6 +241,7 @@ def run(cfg) -> list[Finding]:
                 "OWASP A07:2021 – Identification and Authentication Failures",
             ],
             location="Authentication → Servers → Add RADIUS/LDAP/AD server → Apply",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
     else:
         for srv in cfg.auth_servers:
@@ -257,6 +267,7 @@ def run(cfg) -> list[Finding]:
                             "RFC 6614 – Transport Layer Security (TLS) Encryption for RADIUS (RADSEC)",
                         ],
                         location=f"Authentication → Servers → Edit '{name}' → enable TLS → Apply",
+                        exploitability="Medium", impact_scope="Network", exposure="Adjacent",
                     ))
             if stype == "LDAPServer":
                 port = _v(srv, "Port", "ServerPort")
@@ -279,6 +290,7 @@ def run(cfg) -> list[Finding]:
                             "RFC 4513 – LDAP Authentication Methods and Security Mechanisms",
                         ],
                         location=f"Authentication → Servers → Edit '{name}' → change port to 636 / enable SSL → Apply",
+                        exploitability="High", impact_scope="Network", exposure="Adjacent",
                     ))
 
     # ── Local Admin Accounts ──────────────────────────────────────────────────
@@ -306,6 +318,7 @@ def run(cfg) -> list[Finding]:
                 "System → Administration → Admin and user settings → Administrators\n"
                 "→ Create new admin → disable default 'admin' account"
             ),
+            exploitability="High", impact_scope="Host", exposure="External",
         ))
 
     if len(admin_users) > 3:
@@ -327,6 +340,7 @@ def run(cfg) -> list[Finding]:
             ],
             location="System → Administration → Admin and user settings → Administrators → review and remove unused accounts",
             affected=[u.get("name", "(unnamed)") for u in admin_users],
+            exploitability="Medium", impact_scope="Host", exposure="Internal",
         ))
 
     return findings

@@ -39,6 +39,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-92 – Guide to Computer Security Log Management",
                 "CIS Sophos Benchmark §3.1",
             ],
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
     elif len(cfg.syslog_servers) == 1:
         findings.append(Finding(
@@ -61,6 +62,7 @@ def run(cfg) -> list[Finding]:
                 "Firewall → Log settings → Syslog servers\n"
                 "→ Click 'Add' to add a second syslog server"
             ),
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     # ── IPS ───────────────────────────────────────────────────────────────────
@@ -90,6 +92,7 @@ def run(cfg) -> list[Finding]:
                 "→ Edit each WAN-facing rule → under 'Security features' enable IPS "
                 "and select an IPS policy → Save"
             ),
+            exploitability="Low", impact_scope="Network", exposure="External",
         ))
     else:
         status = str(ips.get("Status", ips.get("Enable", ""))).lower()
@@ -119,6 +122,7 @@ def run(cfg) -> list[Finding]:
                     "Firewall → Rules and policies → Firewall rules\n"
                     "→ Edit each WAN-facing rule → enable IPS and assign the policy → Save"
                 ),
+                exploitability="Low", impact_scope="Network", exposure="External",
             ))
 
     # ── DoS Protection ────────────────────────────────────────────────────────
@@ -145,6 +149,7 @@ def run(cfg) -> list[Finding]:
                 "Firewall → Rules and policies → DoS and spoof protection\n"
                 "→ Review and enable DoS rules for WAN-facing interfaces"
             ),
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
     else:
         status = str(dos.get("Status", dos.get("Enable", ""))).lower()
@@ -170,6 +175,7 @@ def run(cfg) -> list[Finding]:
                     "Firewall → Rules and policies → DoS and spoof protection\n"
                     "→ Enable DoS protection and configure flood thresholds for WAN interfaces"
                 ),
+                exploitability="High", impact_scope="Network", exposure="External",
             ))
 
     return findings

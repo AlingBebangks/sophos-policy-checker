@@ -9,7 +9,6 @@ _RISKY_SERVICES = {
     "telnet", "ftp", "tftp", "rsh", "rlogin", "snmp", "snmpv1", "snmpv2",
     "finger", "chargen", "echo", "discard", "rpc", "nfs",
 }
-# Network/security terms that look like title-case words but aren't personal names
 _NOT_NAMES = {
     "wan", "lan", "dmz", "vpn", "nat", "dns", "ntp", "ftp", "ssh", "ssl", "tls",
     "http", "https", "smtp", "snmp", "vlan", "mgmt", "mgmnt", "any", "all",
@@ -19,7 +18,6 @@ _NOT_NAMES = {
     "voice", "data", "video", "iot", "prod", "dev", "test", "staging", "backup",
     "access", "block", "permit", "local", "remote", "static", "dynamic",
 }
-# Matches two consecutive title-cased words that could be a personal name
 _PII_RE = re.compile(r'\b([A-Z][a-z]{1,})\s+([A-Z][a-z]{1,})\b')
 
 _FW_NAV = "Firewall → Rules and policies → Firewall rules"
@@ -30,7 +28,6 @@ def _is_any(values: list[str]) -> bool:
 
 
 def _has_pii(text: str) -> bool:
-    """Return True if text appears to contain a personal name (two title-case words)."""
     for m in _PII_RE.finditer(text or ""):
         w1, w2 = m.group(1).lower(), m.group(2).lower()
         if w1 not in _NOT_NAMES and w2 not in _NOT_NAMES:
@@ -55,6 +52,7 @@ def run(cfg) -> list[Finding]:
             title="No firewall rules found in config",
             detail="The parser found no FirewallRule elements. The config may use a different schema version.",
             recommendation="Verify the XML backup is a full Sophos XG/SFOS configuration export.",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
         return findings
 
@@ -83,13 +81,11 @@ def run(cfg) -> list[Finding]:
             else:
                 disabled_accept_rules.append(rule)
 
-        # WAN-sourced accept rule with no source network restriction
         if (action in ("accept", "allow") and not is_disabled
                 and any(z.strip().lower() in _WAN_ZONES for z in src_zones)
                 and _is_any(src_nets)):
             wan_any_src_rules.append(rule)
 
-        # PII in rule name or description
         if _has_pii(rule.get("name", "") or "") or _has_pii(rule.get("description", "") or ""):
             pii_rules.append(rule)
 
@@ -138,6 +134,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in any_any_rules],
             affected_rules=any_any_rules,
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     if wan_any_src_rules:
@@ -174,6 +171,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in wan_any_src_rules],
             affected_rules=wan_any_src_rules,
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     if all_services_rules:
@@ -206,6 +204,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in all_services_rules],
             affected_rules=all_services_rules,
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     if risky_service_rules:
@@ -244,6 +243,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[f"{_label(r)} — flagged service: {s}" for r, s in risky_service_rules],
             affected_rules=annotated,
+            exploitability="Medium", impact_scope="Network", exposure="Adjacent",
         ))
 
     if no_log_rules:
@@ -275,6 +275,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in no_log_rules],
             affected_rules=no_log_rules,
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     if disabled_drop_rules:
@@ -311,6 +312,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in disabled_drop_rules],
             affected_rules=disabled_drop_rules,
+            exploitability="Medium", impact_scope="Network", exposure="Internal",
         ))
 
     if disabled_accept_rules:
@@ -340,6 +342,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in disabled_accept_rules],
             affected_rules=disabled_accept_rules,
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     if pii_rules:
@@ -375,6 +378,7 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in pii_rules],
             affected_rules=pii_rules,
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     return findings

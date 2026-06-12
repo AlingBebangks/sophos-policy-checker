@@ -18,6 +18,7 @@ def run(cfg) -> list[Finding]:
             detail="Interface details could not be parsed from the configuration backup.",
             recommendation="Verify interface settings under Network → Interfaces.",
             location="Network → Interfaces",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
     else:
         unzoned   = [i.get("name") for i in ifaces if not _v(i, "zone") and not _off(_v(i, "status"))]
@@ -45,6 +46,7 @@ def run(cfg) -> list[Finding]:
                 ],
                 location="Network → Interfaces → Edit interface → assign Zone → Apply",
                 affected=[str(n) for n in unzoned if n],
+                exploitability="Medium", impact_scope="Network", exposure="Internal",
             ))
 
         if no_spoof:
@@ -69,6 +71,7 @@ def run(cfg) -> list[Finding]:
                 ],
                 location="Network → Interfaces → Edit interface → enable Anti-spoofing → Apply",
                 affected=[str(n) for n in no_spoof if n],
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
         if ipv6_ifaces:
@@ -90,6 +93,7 @@ def run(cfg) -> list[Finding]:
                 ],
                 location="Firewall → Rules and policies → Firewall rules → verify IPv6 rules exist for all zones",
                 affected=[str(n) for n in ipv6_ifaces if n],
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
 
     # ── Zones ─────────────────────────────────────────────────────────────────
@@ -97,7 +101,6 @@ def run(cfg) -> list[Finding]:
     zone_names = {_v(z, "Name", "ZoneName", "name").lower() for z in zones}
 
     if zones:
-        # ── Zone-level IP spoof prevention ────────────────────────────────────
         spoof_disabled_zones: list[str] = []
         for zone in zones:
             zone_name = (
@@ -108,8 +111,6 @@ def run(cfg) -> list[Finding]:
                 zone.get("SpoofProtection") or zone.get("AntiSpoofing") or
                 zone.get("IPSpoofCheck") or ""
             )
-            # Only flag zones that have an explicit 'disable' — zones with no
-            # value at all may simply not support the field.
             if spoof_val and _off(spoof_val):
                 spoof_disabled_zones.append(zone_name)
 
@@ -145,6 +146,7 @@ def run(cfg) -> list[Finding]:
                     "Repeat for each affected zone."
                 ),
                 affected=spoof_disabled_zones,
+                exploitability="High", impact_scope="Network", exposure="External",
             ))
 
         has_dmz = any(n in zone_names for n in ("dmz", "demilitarized", "screened"))
@@ -172,6 +174,7 @@ def run(cfg) -> list[Finding]:
                     "NIST SP 800-41 Rev 1 §3.3 – Network Design with DMZ",
                 ],
                 location="Network → Zones → Add zone → Type: DMZ → Apply\nThen update server interface assignments",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
     # ── Routing ───────────────────────────────────────────────────────────────
@@ -195,6 +198,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 12.2 – Establish and Maintain a Secure Network Architecture",
             ],
             location="Network → Routing → Static routes → review and remove duplicate defaults",
+            exploitability="Low", impact_scope="Network", exposure="Internal",
         ))
 
     return findings

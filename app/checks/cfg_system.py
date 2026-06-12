@@ -28,6 +28,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-92 §2.1 – Time Synchronization for Log Management",
             ],
             location="System → System settings → Time\n→ Add NTP server(s) → Apply",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
     elif len(cfg.ntp_servers) < 2:
         findings.append(Finding(
@@ -40,6 +41,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 8.4 – Standardize Time Synchronization",
             ],
             location="System → System settings → Time\n→ Add a second NTP server → Apply",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     # ── DNS ───────────────────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ def run(cfg) -> list[Finding]:
             detail="DNS configuration could not be parsed. Ensure DNS is configured and resolves correctly.",
             recommendation="Verify DNS under Network → DNS. Use trusted, internal resolvers.",
             location="Network → DNS\n→ Configure primary and secondary DNS servers",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
     else:
         primary   = _v(dns, "IPv4DNS1", "PrimaryDNS", "Primary", "DNSServer1")
@@ -64,6 +67,7 @@ def run(cfg) -> list[Finding]:
                 detail="Without DNS the firewall cannot resolve hostnames for updates, cloud services, or threat feeds.",
                 recommendation="Set a primary and secondary DNS server.",
                 location="Network → DNS → Set primary and secondary resolvers → Apply",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
         elif not secondary:
             findings.append(Finding(
@@ -73,6 +77,7 @@ def run(cfg) -> list[Finding]:
                 detail="A single DNS server is a single point of failure.",
                 recommendation="Configure a secondary DNS server.",
                 location="Network → DNS → Add secondary DNS server → Apply",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
 
         dnssec = _v(dns, "DNSSEC", "DNSSECValidation")
@@ -94,6 +99,7 @@ def run(cfg) -> list[Finding]:
                     "RFC 9364 – DNS Security Extensions",
                 ],
                 location="Network → DNS → Enable DNSSEC validation → Apply",
+                exploitability="Medium", impact_scope="Network", exposure="Adjacent",
             ))
 
     # ── SNMP ──────────────────────────────────────────────────────────────────
@@ -126,6 +132,7 @@ def run(cfg) -> list[Finding]:
                         "CIS Benchmark §4.3",
                     ],
                     location="System → SNMP\n→ Set version to SNMPv3 → configure auth and privacy settings → Apply",
+                    exploitability="High", impact_scope="Network", exposure="Adjacent",
                 ))
             community = _v(snmp, "CommunityString", "Community", "ReadCommunity")
             if community.lower() in ("public", "private", ""):
@@ -146,6 +153,7 @@ def run(cfg) -> list[Finding]:
                         "CIS Control 4.2 – Establish and Maintain a Secure Configuration Process for Network Infrastructure",
                     ],
                     location="System → SNMP → Change community string → Apply",
+                    exploitability="High", impact_scope="Network", exposure="Adjacent",
                 ))
             allowed_hosts = _v(snmp, "AllowedHosts", "HostAllowed", "TrapServer")
             if not allowed_hosts:
@@ -166,6 +174,7 @@ def run(cfg) -> list[Finding]:
                         "CIS Control 12.3 – Securely Manage Network Infrastructure",
                     ],
                     location="System → SNMP → Set Allowed Hosts → Apply",
+                    exploitability="Medium", impact_scope="Network", exposure="Adjacent",
                 ))
 
     # ── Automatic Updates ─────────────────────────────────────────────────────
@@ -189,6 +198,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 7 – Continuous Vulnerability Management",
             ],
             location="System → Updates → Enable automatic pattern updates for IPS, AV, AppControl → Apply",
+            exploitability="Low", impact_scope="Network", exposure="External",
         ))
     else:
         auto = _v(upd, "AutoUpdate", "Automatic", "Schedule", "Enable")
@@ -211,6 +221,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Control 7.3 – Perform Automated Patch Management",
                 ],
                 location="System → Updates → Enable automatic updates → set frequency to Daily → Apply",
+                exploitability="Low", impact_scope="Network", exposure="External",
             ))
 
     # ── Backup ────────────────────────────────────────────────────────────────
@@ -233,6 +244,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 11 – Data Recovery",
             ],
             location="System → Backup & firmware → Backup\n→ Configure scheduled backup with encryption → Save",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
     else:
         schedule = _v(backup, "Schedule", "BackupSchedule", "AutoBackup", "Frequency")
@@ -251,6 +263,7 @@ def run(cfg) -> list[Finding]:
                     "MITRE ATT&CK T1486 – Data Encrypted for Impact",
                 ],
                 location="System → Backup & firmware → Backup → Enable scheduled backup → Apply",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
         encrypt = _v(backup, "EncryptionPassword", "Encrypt", "Encryption")
         if not encrypt or _off(encrypt):
@@ -271,6 +284,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Control 11.3 – Establish and Maintain a Data Recovery Process",
                 ],
                 location="System → Backup & firmware → Backup → Set encryption password → Apply",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
 
     # ── Notifications ─────────────────────────────────────────────────────────
@@ -293,6 +307,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 8.11 – Conduct Audit Log Reviews",
             ],
             location="System → Administration → Notification settings → Configure email alerts → Apply",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     # ── HA ────────────────────────────────────────────────────────────────────
@@ -307,6 +322,7 @@ def run(cfg) -> list[Finding]:
                 detail="The firewall is running in standalone mode. A hardware failure will cause a network outage.",
                 recommendation="Consider HA Active-Passive or Active-Active deployment for critical environments.",
                 location="System → High availability → Configure HA peer → Apply",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
         else:
             sync = _v(ha, "ConfigSync", "SynchroniseConfig", "Sync")
@@ -327,6 +343,7 @@ def run(cfg) -> list[Finding]:
                         "OWASP A05:2021 – Security Misconfiguration",
                     ],
                     location="System → High availability → Enable Config sync → Apply",
+                    exploitability="Low", impact_scope="Local", exposure="Internal",
                 ))
 
     return findings

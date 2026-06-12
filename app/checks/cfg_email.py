@@ -17,6 +17,7 @@ def run(cfg) -> list[Finding]:
             detail="No email configuration was detected. If SMTP relay or email protection is in use, verify settings manually.",
             recommendation="Review email protection under Email → General settings.",
             location="Email → General settings",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
         return findings
 
@@ -42,6 +43,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-177 Rev 1 – Trustworthy Email",
             ],
             location="Email → SMTP → TLS settings → Enable TLS → set minimum TLS 1.2 → Apply",
+            exploitability="High", impact_scope="Network", exposure="Adjacent",
         ))
 
     # ── SPF / DKIM / DMARC ───────────────────────────────────────────────────
@@ -69,6 +71,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-177 Rev 1 §4.6",
             ],
             location="Email → Antispam → SPF → Enable SPF check → Apply",
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     if _off(dkim):
@@ -90,6 +93,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-177 Rev 1 §4.5",
             ],
             location="Email → Antispam → DKIM → Enable DKIM check → Apply",
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     if _off(dmarc):
@@ -112,6 +116,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-177 Rev 1 §4.7",
             ],
             location="Email → Antispam → DMARC → Enable DMARC check → Apply",
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     # ── Antispam ──────────────────────────────────────────────────────────────
@@ -135,6 +140,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 9.6 – Block Unnecessary File Types",
             ],
             location="Email → Antispam → Enable antispam → Apply",
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     # ── Open relay ────────────────────────────────────────────────────────────
@@ -160,6 +166,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-177 Rev 1 §4.1 – Preventing Open Relays",
             ],
             location="Email → SMTP → Relay settings → restrict to authenticated users or internal networks only → Apply",
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     return findings

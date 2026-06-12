@@ -81,6 +81,7 @@ def run(cfg) -> list[Finding]:
                 "NSA CISA Joint Advisory – Selecting and Hardening Remote Access VPN Solutions",
             ],
             affected=[f"{n}: {v}" for n, v in weak_enc],
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     if weak_auth:
@@ -106,6 +107,7 @@ def run(cfg) -> list[Finding]:
                 "RFC 8221 – Cryptographic Requirements for IPsec",
             ],
             affected=[f"{n}: {v}" for n, v in weak_auth],
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     if weak_dh:
@@ -133,6 +135,7 @@ def run(cfg) -> list[Finding]:
                 "Logjam: Imperfect Forward Secrecy – weakdh.org",
             ],
             affected=[f"{n}: {v}" for n, v in weak_dh],
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     if psk_policies:
@@ -160,6 +163,7 @@ def run(cfg) -> list[Finding]:
                 "NSA CISA Advisory – Selecting and Hardening Remote Access VPN Solutions",
             ],
             affected=psk_policies,
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     if short_lifetime:
@@ -184,6 +188,7 @@ def run(cfg) -> list[Finding]:
                 "NIST SP 800-77 Rev 1 §4.3 – SA Lifetimes",
             ],
             affected=[f"{n} (lifetime={v}s)" for n, v in short_lifetime],
+            exploitability="Low", impact_scope="Network", exposure="External",
         ))
 
     if not cfg.vpn_ipsec:
@@ -193,6 +198,7 @@ def run(cfg) -> list[Finding]:
             title="No IPSec VPN policies found",
             detail="No IPsecPolicy elements were detected in the configuration.",
             recommendation="No action required if IPSec VPN is not in use.",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     # ── PPTP / L2TP without IPSec ─────────────────────────────────────────────
@@ -205,8 +211,6 @@ def run(cfg) -> list[Finding]:
         ).lower()
         enabled = status not in ("disable", "disabled", "0", "false", "off", "no", "")
 
-        # PPTP is always a critical finding — the protocol itself is broken.
-        # L2TP without IPSec is also critical.
         is_l2tp = "l2tp" in tag
         title = (
             "L2TP VPN enabled without IPSec encryption"
@@ -230,8 +234,6 @@ def run(cfg) -> list[Finding]:
             "enabling T1078 (Valid Accounts). "
             "Aligns with OWASP A02:2021 – Cryptographic Failures."
         )
-        # Always flag as Critical when the config section exists regardless of
-        # enabled status — if found it should be explicitly disabled and removed.
         severity = Severity.CRITICAL if (not is_l2tp or enabled) else Severity.HIGH
         findings.append(Finding(
             severity=severity,
@@ -251,6 +253,7 @@ def run(cfg) -> list[Finding]:
                 "VPN → Remote access → PPTP/L2TP → Disable → Apply\n"
                 "Migrate users: VPN → Sophos Connect (SSL VPN) or IPSec remote access"
             ),
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     # ── SSL VPN ───────────────────────────────────────────────────────────────
@@ -262,19 +265,16 @@ def run(cfg) -> list[Finding]:
     for policy in cfg.vpn_ssl:
         name = _v(policy, "Name", "PolicyName") or "(unnamed)"
 
-        # Over-permissive destination scope
         dest = _v(policy, "DestinationNetworks", "AllowedNetworks", "AccessibleNetworks",
                   "PermittedNetworks", "Network")
         if not dest or dest.lower() in ("any", "all", "*"):
             ssl_broad_scope.append(name)
 
-        # MFA not enforced on SSL VPN
         mfa = _v(policy, "OTPEnable", "MFA", "TwoFactor", "TwoFactorAuth", "TOTPEnabled",
                  "OTP", "MultiFactor")
         if mfa and _off(mfa):
             ssl_no_mfa.append(name)
 
-        # Weak TLS minimum version
         tls_min = _v(policy, "TLSMinVersion", "MinTLSVersion", "SSLVersion", "TLSVersion")
         if tls_min.lower() in _WEAK_TLS:
             ssl_weak_tls.append(f"{name} (min={tls_min})")
@@ -310,6 +310,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Controls v8 – 6.2 Establish an Access Granting Process",
             ],
             affected=ssl_broad_scope,
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     if ssl_no_mfa:
@@ -341,6 +342,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Controls v8 – 6.3 Require MFA for Externally-Exposed Applications",
             ],
             affected=ssl_no_mfa,
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     if ssl_weak_tls:
@@ -371,6 +373,7 @@ def run(cfg) -> list[Finding]:
                 "RFC 8996 – Deprecating TLS 1.0 and TLS 1.1",
             ],
             affected=ssl_weak_tls,
+            exploitability="Medium", impact_scope="Network", exposure="External",
         ))
 
     if not cfg.vpn_ssl:
@@ -380,6 +383,7 @@ def run(cfg) -> list[Finding]:
             title="No SSL VPN policies found",
             detail="No SSLVPNPolicy elements were detected in the configuration.",
             recommendation="No action required if SSL VPN is not in use.",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     return findings

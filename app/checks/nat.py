@@ -29,8 +29,6 @@ def run(cfg) -> list[Finding]:
                         "SourceIP", "Source")
         rule_type = _val(rule, "Type", "RuleType", "NATType").lower()
 
-        # Flag DNAT rules (identified by having a TranslatedDestination or explicit DNAT type)
-        # where the original source is unrestricted — any internet host can reach the target.
         is_dnat = bool(translated_dst) or rule_type in ("dnat", "port forwarding", "portforwarding",
                                                          "server access assistant", "dst nat")
         if is_dnat and (not orig_src or orig_src.lower() in ("any", "all", "*")):
@@ -75,6 +73,7 @@ def run(cfg) -> list[Finding]:
                 "→ Find the rule forwarding port 3389 → click the three-dot menu → Delete or Edit "
                 "to restrict the 'Original source' to a specific management IP only"
             ),
+            exploitability="High", impact_scope="Host", exposure="External",
         ))
 
     other_risky = [(n, p, s) for n, p, s in risky_port_rules if s != "RDP"]
@@ -110,6 +109,7 @@ def run(cfg) -> list[Finding]:
                 "or Edit to add an 'Original source' restriction to a trusted IP range"
             ),
             affected=affected,
+            exploitability="High", impact_scope="Host", exposure="External",
         ))
 
     if dnat_any_source:
@@ -147,6 +147,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Controls v8 – 4.4 Implement and Manage a Firewall on Servers",
             ],
             affected=dnat_any_source,
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
 
     if not rules:
@@ -156,6 +157,7 @@ def run(cfg) -> list[Finding]:
             title="No NAT rules found",
             detail="No NATRule elements were detected.",
             recommendation="No action required if NAT is not in use.",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
     return findings
