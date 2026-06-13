@@ -158,12 +158,25 @@ def run(cfg) -> list[Finding]:
         ))
 
     # ── Device access (zone-level admin access) ───────────────────────────────
+    _ssh_on_zones:   list[str] = []
+    _ssh_dmz_zones:  list[str] = []
+    _ssh_disabled_all = True  # assume disabled until we see it enabled anywhere
+
     for da in cfg.device_access:
         zone = _val(da, "Zone", "Name")
         http = _val(da, "HTTP", "WebAdmin")
         ssh  = _val(da, "SSH")
+        is_wan = zone.lower() in ("wan", "untrust", "internet", "external") or "wan" in zone.lower()
+        is_dmz = "dmz" in zone.lower() or "demil" in zone.lower()
+        ssh_on = ssh.lower() not in ("disable", "disabled", "0", "false", "off", "")
 
-        if zone.lower() in ("wan", "untrust", "internet", "external") or "wan" in zone.lower():
+        if ssh_on:
+            _ssh_disabled_all = False
+            _ssh_on_zones.append(zone)
+            if is_dmz:
+                _ssh_dmz_zones.append(zone)
+
+        if is_wan:
             if http.lower() not in ("disable", "disabled", "0", "false", "off", ""):
                 findings.append(Finding(
                     severity=Severity.CRITICAL,
@@ -198,7 +211,7 @@ def run(cfg) -> list[Finding]:
                     exploitability="High", impact_scope="Host", exposure="External",
                 ))
 
-            if ssh.lower() not in ("disable", "disabled", "0", "false", "off", ""):
+            if ssh_on:
                 findings.append(Finding(
                     severity=Severity.HIGH,
                     category="Administration",
@@ -227,6 +240,106 @@ def run(cfg) -> list[Finding]:
                     ),
                     exploitability="High", impact_scope="Host", exposure="External",
                 ))
+
+    # ── SSH visibility summary (all enabled zones) ────────────────────────────
+    if not cfg.device_access:
+        findings.append(Finding(
+            severity=Severity.INFO,
+            category="Administration",
+            title="SSH access status could not be determined",
+            detail=(
+                "No DeviceAccess zone configuration was found in the backup. "
+                "SSH management access status is unknown — verify manually."
+            ),
+            recommendation=(
+                "In the Sophos admin console, navigate to Administration → Device access "
+                "and confirm SSH is disabled on all zones unless explicitly required. "
+                "If SSH is needed, restrict it to the LAN or management VLAN only."
+            ),
+            references=[
+                "MITRE ATT&CK T1021.004 – Remote Services: SSH",
+                "CIS Control 4.6 – Securely Manage Enterprise Assets Remotely",
+            ],
+            location=f"{_ADMIN_NAV}\n→ Review SSH column for each zone",
+            exploitability="Low", impact_scope="Host", exposure="Internal",
+        ))
+    elif _ssh_disabled_all:
+        findings.append(Finding(
+            severity=Severity.INFO,
+            category="Administration",
+            title="SSH management access is disabled on all zones",
+            detail="SSH is disabled across all device access zones. This is the recommended posture.",
+            recommendation=(
+                "No action required. Continue to verify this setting after firmware upgrades "
+                "as updates can sometimes re-enable default services."
+            ),
+            references=[
+                "CIS Control 4.6 – Securely Manage Enterprise Assets Remotely",
+            ],
+            location=f"{_ADMIN_NAV}\n→ SSH column — all zones show Disabled",
+            exploitability="Low", impact_scope="Local", exposure="Internal",
+        ))
+    else:
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category="Administration",
+            title=f"SSH management access is enabled on {len(_ssh_on_zones)} zone(s)",
+            detail=(
+                f"SSH is enabled on: {', '.join(_ssh_on_zones)}. "
+                "SSH provides command-line access to the firewall. "
+                "Even on internal zones it increases attack surface if an internal host is compromised."
+            ),
+            recommendation=(
+                "Disable SSH on all zones where it is not actively required. "
+                "If SSH is needed for maintenance, enable it only temporarily and restrict access "
+                "to a dedicated management VLAN or host IP. "
+                "Enabled SSH on internal zones enables MITRE ATT&CK T1021.004 (Remote Services: SSH) "
+                "lateral movement from a compromised internal host. "
+                "Aligns with CIS Control 4.6 – Securely Manage Enterprise Assets Remotely."
+            ),
+            references=[
+                "MITRE ATT&CK T1021.004 – Remote Services: SSH",
+                "MITRE ATT&CK T1133 – External Remote Services",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "CIS Control 4.6 – Securely Manage Enterprise Assets Remotely",
+            ],
+            location=(
+                f"{_ADMIN_NAV}\n"
+                "→ For each zone where SSH is not required → uncheck SSH under Admin column → Apply"
+            ),
+            affected=_ssh_on_zones,
+            exploitability="Low", impact_scope="Host", exposure="Internal",
+        ))
+
+    # SSH on DMZ — elevated risk even if not WAN
+    if _ssh_dmz_zones:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category="Administration",
+            title=f"SSH enabled on DMZ zone(s) ({', '.join(_ssh_dmz_zones)})",
+            detail=(
+                "SSH is enabled on a DMZ zone. DMZ hosts are typically externally reachable "
+                "and a compromised DMZ server can pivot to the firewall management interface via SSH."
+            ),
+            recommendation=(
+                "Disable SSH on all DMZ zones. DMZ-to-firewall SSH enables MITRE ATT&CK "
+                "T1021.004 (Remote Services: SSH) as a pivot from a compromised DMZ server "
+                "directly to firewall management. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            references=[
+                "MITRE ATT&CK T1021.004 – Remote Services: SSH",
+                "MITRE ATT&CK TA0008 – Lateral Movement",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "CIS Control 12.2 – Establish and Maintain a Secure Network Architecture",
+            ],
+            location=(
+                f"{_ADMIN_NAV}\n"
+                "→ Find the DMZ zone row → uncheck SSH under Admin column → Apply"
+            ),
+            affected=_ssh_dmz_zones,
+            exploitability="Medium", impact_scope="Host", exposure="Adjacent",
+        ))
 
     if not cfg.admin_settings and not cfg.device_access:
         findings.append(Finding(
