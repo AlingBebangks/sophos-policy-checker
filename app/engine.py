@@ -8,6 +8,7 @@ from .checks import (
     cfg_ports,
 )
 from .checks.framework_refs import enrich
+from .checks.real_world_cases import match as _match_cases
 from .parser import SophosConfig
 
 
@@ -23,5 +24,8 @@ def run_all(cfg: SophosConfig) -> list[Finding]:
         findings.extend(module.run(cfg))
     # Append NIST SP 800-53 Rev 5 and CIS Controls v8 references to every finding.
     findings = [enrich(f) for f in findings]
+    # Attach real-world examples to every finding (used when deep_mode=True).
+    for f in findings:
+        f.real_world_examples = _match_cases(f.title)
     findings.sort(key=lambda f: SEVERITY_ORDER[f.severity])
     return findings

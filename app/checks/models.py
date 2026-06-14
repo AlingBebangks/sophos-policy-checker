@@ -43,6 +43,8 @@ class Finding:
     exploitability: str = "High"    # High / Medium / Low
     impact_scope:   str = "Network" # Network / Host / Local
     exposure:       str = "External"# External / Internal / Adjacent
+    # ── Real-world attack examples (injected by engine in deep mode) ────────
+    real_world_examples: list[str] = field(default_factory=list)
 
 
 # ── Per-finding score ─────────────────────────────────────────────────────────

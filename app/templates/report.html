@@ -43,6 +43,7 @@ body.web{background:#e8eaed}
   border-radius:4px;font-size:0.73rem;font-weight:600;text-decoration:none;border:none;cursor:pointer}
 .btn-green{background:#1e8449;color:#fff}.btn-green:hover{background:#196f3d}
 .btn-orange{background:#b7500a;color:#fff}.btn-orange:hover{background:#9a420a}
+.btn-purple{background:#6c3483;color:#fff}.btn-purple:hover{background:#5b2c6f}
 .btn-blue{background:#1f618d;color:#fff}.btn-blue:hover{background:#1a5276}
 
 /* Wrap */
@@ -166,6 +167,17 @@ body.web{background:#e8eaed}
 .loc{background:#f0f7ff;border:1px solid #aed6f1;border-left:3px solid #2471a3;
   border-radius:3px;padding:6px 10px;font-family:monospace;font-size:0.73rem;
   white-space:pre-line;line-height:1.65;color:#1a5276}
+
+/* Real-world cases (web) */
+.cases-box{background:#fdf6ff;border-left:3px solid #6c3483;border-radius:0 3px 3px 0;
+  padding:8px 12px;margin-top:4px}
+.cases-lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  color:#6c3483;margin-bottom:5px}
+.cases-list{list-style:none;margin:0;padding:0}
+.cases-list li{font-size:0.78rem;line-height:1.6;padding:3px 0;
+  border-bottom:1px solid #ead6f7;color:#4a235a}
+.cases-list li:last-child{border-bottom:none}
+.cases-list li::before{content:"▸ ";color:#6c3483;font-weight:700}
 
 /* Rule cards */
 .rule-cards{display:flex;flex-direction:column;gap:5px}
@@ -363,6 +375,17 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   .tag-warn-p {color:#d35400!important;font-weight:600}
   .tag-off-p  {color:#c0392b!important}
   .tag-on-p   {color:#1e8449!important}
+
+  /* ── Real-world cases box (deep mode) ───────────────────── */
+  .pdf-cases-box{background:#fdf6ff!important;border-left:3pt solid #6c3483!important;
+    padding:5pt 8pt}
+  .pdf-cases-lbl{font-size:6.5pt;font-weight:800;text-transform:uppercase;
+    letter-spacing:.4pt;color:#6c3483;margin-bottom:3pt}
+  .pdf-cases-list{list-style:none;margin:0;padding:0}
+  .pdf-cases-list li{font-size:7.5pt;line-height:1.55;padding:2pt 0;
+    border-bottom:1pt solid #ead6f7;word-wrap:break-word;overflow-wrap:break-word}
+  .pdf-cases-list li:last-child{border-bottom:none}
+  .pdf-cases-list li::before{content:"▸ ";color:#6c3483;font-weight:700}
 
   /* ── References list ─────────────────────────────────────── */
   .pdf-refs{font-size:7pt;color:#2471a3;margin:0;padding:0;
@@ -672,6 +695,18 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
       <td>{% for item in f.affected %}<span class="pdf-chip">{{ item }}</span>{% endfor %}</td>
     </tr>
     {% endif %}
+    {% if deep_mode and f.real_world_examples %}
+    <tr><th style="color:#6c3483">Real-World Cases</th>
+      <td>
+        <div class="pdf-cases-box">
+          <div class="pdf-cases-lbl">Known incidents involving this vulnerability type</div>
+          <ul class="pdf-cases-list">
+            {% for ex in f.real_world_examples %}<li>{{ ex }}</li>{% endfor %}
+          </ul>
+        </div>
+      </td>
+    </tr>
+    {% endif %}
     {% if f.references %}
     <tr><th>References</th>
       <td><ul class="pdf-refs">{% for ref in f.references %}<li>{{ ref }}</li>{% endfor %}</ul></td>
@@ -705,9 +740,10 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 </header>
 
 <div class="action-bar web-only">
-  <a class="btn btn-green" href="/report/{{ token }}/pdf">⬇ Technical PDF</a>
+  <a class="btn btn-green"  href="/report/{{ token }}/pdf">⬇ Technical PDF</a>
+  <a class="btn btn-purple" href="/report/{{ token }}/pdf/deep">⬇ Deep Analysis PDF</a>
   <a class="btn btn-orange" href="/report/{{ token }}/pdf/executive">⬇ Executive PDF</a>
-  <a class="btn btn-blue"  href="/">↩ New Analysis</a>
+  <a class="btn btn-blue"   href="/">↩ New Analysis</a>
 </div>
 
 <div class="wrap">
@@ -856,6 +892,16 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
           <div class="f-lbl">Affected ({{ f.affected|length }})</div>
           <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">
             {% for item in f.affected %}<span style="background:#f0f3f7;border-radius:3px;padding:1px 7px;font-size:0.72rem;font-family:monospace">{{ item }}</span>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if f.real_world_examples %}
+        <div class="f-cell full">
+          <div class="f-lbl" style="color:#6c3483">⚔ Real-World Attack Cases</div>
+          <div class="cases-box">
+            <div class="cases-lbl">Known incidents involving this vulnerability type</div>
+            <ul class="cases-list">{% for ex in f.real_world_examples %}<li>{{ ex }}</li>{% endfor %}</ul>
           </div>
         </div>
         {% endif %}

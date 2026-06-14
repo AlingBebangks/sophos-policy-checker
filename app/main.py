@@ -184,6 +184,7 @@ async def analyze(request: Request, config_file: UploadFile = File(...)):
         "token": token,
         "pdf_mode": False,
         "exec_mode": False,
+        "deep_mode": False,
         **ctx,
     })
 
@@ -200,7 +201,7 @@ async def report_pdf(token: str):
 
     ctx, _ = entry
     html_str = _jinja_env.get_template("report.html").render(
-        token=token, pdf_mode=True, exec_mode=False, **ctx,
+        token=token, pdf_mode=True, exec_mode=False, deep_mode=False, **ctx,
     )
     pdf_bytes = WP_HTML(string=html_str, base_url=str(BASE / "templates")).write_pdf()
 
@@ -209,6 +210,30 @@ async def report_pdf(token: str):
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="sophos-audit-technical-{safe_name}.pdf"'},
+    )
+
+
+@app.get("/report/{token}/pdf/deep")
+async def report_pdf_deep(token: str):
+    """Full technical PDF with real-world attack case studies per finding."""
+    from weasyprint import HTML as WP_HTML
+
+    entry = _report_store.get(token)
+    if entry is None or time.time() > entry[1]:
+        _report_store.pop(token, None)
+        return HTMLResponse("<h3>Report expired or not found. Please re-upload your config.</h3>", status_code=404)
+
+    ctx, _ = entry
+    html_str = _jinja_env.get_template("report.html").render(
+        token=token, pdf_mode=True, exec_mode=False, deep_mode=True, **ctx,
+    )
+    pdf_bytes = WP_HTML(string=html_str, base_url=str(BASE / "templates")).write_pdf()
+
+    safe_name = ctx["filename"].replace(".xml", "").replace(" ", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="sophos-audit-deep-{safe_name}.pdf"'},
     )
 
 
@@ -224,7 +249,7 @@ async def report_pdf_executive(token: str):
 
     ctx, _ = entry
     html_str = _jinja_env.get_template("report.html").render(
-        token=token, pdf_mode=True, exec_mode=True, **ctx,
+        token=token, pdf_mode=True, exec_mode=True, deep_mode=False, **ctx,
     )
     pdf_bytes = WP_HTML(string=html_str, base_url=str(BASE / "templates")).write_pdf()
 
