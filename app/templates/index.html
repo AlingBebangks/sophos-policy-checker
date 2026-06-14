@@ -68,8 +68,33 @@
     color: #c0392b; display: none;
   }
 
+  .screenshots-section {
+    margin-top: 20px; border-top: 1px solid #ecf0f1; padding-top: 16px;
+  }
+  .screenshots-title {
+    font-size: 0.8rem; font-weight: 700; color: #2c3e50; margin-bottom: 4px;
+  }
+  .screenshots-hint {
+    font-size: 0.73rem; color: #7f8c8d; margin-bottom: 12px;
+  }
+  .shot-row {
+    display: flex; gap: 10px; margin-bottom: 8px;
+  }
+  .shot-slot {
+    flex: 1; border: 1.5px dashed #bdc3c7; border-radius: 8px;
+    padding: 10px 12px; background: #f8f9fa; position: relative; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .shot-slot:hover { border-color: #2980b9; background: #eaf4fc; }
+  .shot-slot input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .shot-label { font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 2px; }
+  .shot-hint  { font-size: 0.68rem; color: #aaa; }
+  .shot-name  { font-size: 0.7rem; color: #2ecc71; font-weight: 600; margin-top: 4px; display: none; }
+
   .features {
-    display: flex; gap: 10px; margin-top: 28px; border-top: 1px solid #ecf0f1; padding-top: 20px;
+    display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid #ecf0f1; padding-top: 20px;
   }
   .feature { flex: 1; text-align: center; }
   .feature .icon { font-size: 1.4rem; }
@@ -92,6 +117,44 @@
     </div>
 
     <div class="error" id="errorBox"></div>
+
+    <!-- Optional evidence screenshots -->
+    <div class="screenshots-section">
+      <div class="screenshots-title">Evidence Screenshots <span style="font-weight:400;color:#aaa">(optional)</span></div>
+      <div class="screenshots-hint">Attach screenshots from the Sophos console — they will appear in all generated reports.</div>
+      <div class="shot-row">
+        <div class="shot-slot" id="sshSlot">
+          <input type="file" name="ssh_screenshot" id="sshInput" accept="image/*">
+          <div class="shot-label">📷 SSH Configuration</div>
+          <div class="shot-hint">Administration → Device access</div>
+          <div class="shot-name" id="sshName"></div>
+        </div>
+        <div class="shot-slot" id="smtpSlot">
+          <input type="file" name="smtp_screenshot" id="smtpInput" accept="image/*">
+          <div class="shot-label">📷 SMTP / Email Config</div>
+          <div class="shot-hint">Email → General settings</div>
+          <div class="shot-name" id="smtpName"></div>
+        </div>
+      </div>
+      <div class="shot-row" id="extraRow" style="display:none">
+        <div class="shot-slot">
+          <input type="file" name="extra_screenshot_1" id="extra1Input" accept="image/*">
+          <div class="shot-label">📷 Additional Screenshot 1</div>
+          <div class="shot-hint">Any other config screen</div>
+          <div class="shot-name" id="extra1Name"></div>
+        </div>
+        <div class="shot-slot">
+          <input type="file" name="extra_screenshot_2" id="extra2Input" accept="image/*">
+          <div class="shot-label">📷 Additional Screenshot 2</div>
+          <div class="shot-hint">Any other config screen</div>
+          <div class="shot-name" id="extra2Name"></div>
+        </div>
+      </div>
+      <button type="button" id="addMoreBtn"
+        style="background:none;border:none;color:#2980b9;font-size:0.75rem;cursor:pointer;padding:0;margin-top:2px">
+        + Add more screenshots
+      </button>
+    </div>
 
     <button type="submit" class="btn" id="submitBtn" disabled>Analyze Configuration</button>
 
@@ -140,6 +203,30 @@ form.addEventListener('submit', e => {
   errorBox.style.display = 'none';
   submitBtn.disabled = true;
   progress.style.display = 'block';
+});
+
+// Screenshot slot file-name feedback
+function bindShot(inputId, nameId) {
+  const inp  = document.getElementById(inputId);
+  const name = document.getElementById(nameId);
+  if (!inp) return;
+  inp.addEventListener('change', () => {
+    if (inp.files.length) {
+      name.textContent = '✔ ' + inp.files[0].name;
+      name.style.display = 'block';
+    } else {
+      name.style.display = 'none';
+    }
+  });
+}
+bindShot('sshInput',    'sshName');
+bindShot('smtpInput',   'smtpName');
+bindShot('extra1Input', 'extra1Name');
+bindShot('extra2Input', 'extra2Name');
+
+document.getElementById('addMoreBtn').addEventListener('click', () => {
+  const row = document.getElementById('extraRow');
+  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
 });
 </script>
 </body>

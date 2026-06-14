@@ -215,6 +215,17 @@ body.web{background:#e8eaed}
 
 footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 
+/* Evidence screenshots (web) */
+.evidence-section{background:#fff;border-radius:5px;padding:14px 18px;margin-bottom:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.evidence-title{font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--muted);margin-bottom:10px}
+.evidence-grid{display:flex;flex-wrap:wrap;gap:12px}
+.evidence-item{flex:1;min-width:260px}
+.evidence-lbl{font-size:0.72rem;font-weight:700;color:#1c2833;margin-bottom:5px;
+  padding:4px 8px;background:#f0f3f7;border-radius:3px;border-left:3px solid #2471a3}
+.evidence-img{width:100%;border:1px solid var(--border);border-radius:3px;display:block}
+
 
 /* ═══════════════════════════════════════════════════════════
    PDF STYLES  (WeasyPrint-safe — real <table> elements only)
@@ -396,6 +407,15 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 
   footer{display:none}
 
+  /* ── Evidence screenshots (PDF) ─────────────────────────── */
+  .pdf-evidence-head{font-size:9.5pt;font-weight:800;text-transform:uppercase;
+    letter-spacing:.4pt;color:#1a252f;border-bottom:1.5pt solid #1a252f;
+    padding-bottom:3pt;margin:16pt 0 8pt}
+  .pdf-evidence-lbl{font-size:7.5pt;font-weight:700;color:#1a5276;
+    background:#eaf4fc!important;border-left:2.5pt solid #2471a3;
+    padding:3pt 7pt;margin-bottom:5pt}
+  .pdf-evidence-img{width:100%;border:1pt solid #dee2e8;display:block;margin-bottom:14pt}
+
   /* ── Executive PDF styles ────────────────────────────────── */
   .pdf-exec-cover{background:#1a252f!important;color:#fff!important;
     padding:18pt 20pt;margin-bottom:16pt}
@@ -569,6 +589,14 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   {% endfor %}
 </table>
 
+{% if screenshots %}
+<div class="pdf-evidence-head">Configuration Evidence</div>
+{% for shot in screenshots %}
+<div class="pdf-evidence-lbl">{{ shot.label }}</div>
+<img class="pdf-evidence-img" src="{{ shot.data_uri }}">
+{% endfor %}
+{% endif %}
+
 </body>
 
 {% elif pdf_mode %}
@@ -731,6 +759,16 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 {% endfor %}
 {% endif %}
 {% endfor %}
+
+{% if screenshots %}
+<div style="margin-top:16pt">
+  <div class="pdf-evidence-head">Configuration Evidence</div>
+  {% for shot in screenshots %}
+  <div class="pdf-evidence-lbl">{{ shot.label }}</div>
+  <img class="pdf-evidence-img" src="{{ shot.data_uri }}">
+  {% endfor %}
+</div>
+{% endif %}
 
 </body>
 
@@ -938,8 +976,22 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   <div class="no-findings">No findings generated. Verify the file is a valid Sophos XG/SFOS configuration backup.</div>
   {% endif %}
 
+  {% if screenshots %}
+  <div class="evidence-section">
+    <div class="evidence-title">Configuration Evidence</div>
+    <div class="evidence-grid">
+      {% for shot in screenshots %}
+      <div class="evidence-item">
+        <div class="evidence-lbl">{{ shot.label }}</div>
+        <img class="evidence-img" src="{{ shot.data_uri }}" alt="{{ shot.label }}">
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
 </div>
-<footer>Firewall Security Assessment &nbsp;·&nbsp; AIVAPT &nbsp;·&nbsp; Authorised use only &nbsp;·&nbsp; {{ generated }}</footer>
+<footer>Firewall Security Assessment &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; Authorised use only &nbsp;·&nbsp; {{ generated }}</footer>
 
 <script>
 document.querySelectorAll('.finding-Critical,.finding-High').forEach(e=>e.classList.add('open'));
