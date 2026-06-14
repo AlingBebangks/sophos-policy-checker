@@ -44,6 +44,7 @@ body.web{background:#e8eaed}
 .btn-green{background:#1e8449;color:#fff}.btn-green:hover{background:#196f3d}
 .btn-orange{background:#b7500a;color:#fff}.btn-orange:hover{background:#9a420a}
 .btn-purple{background:#6c3483;color:#fff}.btn-purple:hover{background:#5b2c6f}
+.btn-maroon{background:#7b241c;color:#fff}.btn-maroon:hover{background:#641e16}
 .btn-blue{background:#1f618d;color:#fff}.btn-blue:hover{background:#1a5276}
 
 /* Wrap */
@@ -552,6 +553,18 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
     <td style="font-size:7.5pt;color:#555">{{ f.category }}</td>
     <td style="font-size:7.5pt">{{ f.recommendation | truncate(200, True, '…') }}</td>
   </tr>
+  {% if deep_mode and f.real_world_examples %}
+  <tr>
+    <td colspan="4" style="padding:0 7pt 5pt 7pt;background:#fdf6ff!important">
+      <div class="pdf-cases-box" style="margin:0">
+        <div class="pdf-cases-lbl">Known incidents</div>
+        <ul class="pdf-cases-list">
+          {% for ex in f.real_world_examples %}<li>{{ ex }}</li>{% endfor %}
+        </ul>
+      </div>
+    </td>
+  </tr>
+  {% endif %}
   {% endfor %}
   {% endfor %}
 </table>
@@ -743,6 +756,7 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   <a class="btn btn-green"  href="/report/{{ token }}/pdf">⬇ Technical PDF</a>
   <a class="btn btn-purple" href="/report/{{ token }}/pdf/deep">⬇ Deep Analysis PDF</a>
   <a class="btn btn-orange" href="/report/{{ token }}/pdf/executive">⬇ Executive PDF</a>
+  <a class="btn btn-maroon" href="/report/{{ token }}/pdf/executive/deep">⬇ Executive Deep PDF</a>
   <a class="btn btn-blue"   href="/">↩ New Analysis</a>
 </div>
 

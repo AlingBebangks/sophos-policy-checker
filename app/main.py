@@ -261,6 +261,30 @@ async def report_pdf_executive(token: str):
     )
 
 
+@app.get("/report/{token}/pdf/executive/deep")
+async def report_pdf_executive_deep(token: str):
+    """Executive summary PDF with real-world attack case studies per finding."""
+    from weasyprint import HTML as WP_HTML
+
+    entry = _report_store.get(token)
+    if entry is None or time.time() > entry[1]:
+        _report_store.pop(token, None)
+        return HTMLResponse("<h3>Report expired or not found. Please re-upload your config.</h3>", status_code=404)
+
+    ctx, _ = entry
+    html_str = _jinja_env.get_template("report.html").render(
+        token=token, pdf_mode=True, exec_mode=True, deep_mode=True, **ctx,
+    )
+    pdf_bytes = WP_HTML(string=html_str, base_url=str(BASE / "templates")).write_pdf()
+
+    safe_name = ctx["filename"].replace(".xml", "").replace(" ", "_")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="sophos-audit-executive-deep-{safe_name}.pdf"'},
+    )
+
+
 @app.get("/health")
 async def health():
     return JSONResponse({"status": "ok"})
