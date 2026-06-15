@@ -3,8 +3,6 @@ import uuid
 import time
 from collections import deque
 from datetime import datetime, timezone, timedelta
-import base64
-from typing import Optional
 from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -153,26 +151,11 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-async def _read_screenshot(upload: Optional[UploadFile], label: str) -> Optional[dict]:
-    """Return {label, data_uri} or None if no file uploaded."""
-    if not upload or not upload.filename:
-        return None
-    data = await upload.read()
-    if not data:
-        return None
-    mime = upload.content_type or "image/png"
-    b64 = base64.b64encode(data).decode()
-    return {"label": label, "data_uri": f"data:{mime};base64,{b64}"}
-
 
 @app.post("/analyze", response_class=HTMLResponse)
 async def analyze(
     request: Request,
-    config_file:        UploadFile        = File(...),
-    ssh_screenshot:     Optional[UploadFile] = File(None),
-    smtp_screenshot:    Optional[UploadFile] = File(None),
-    extra_screenshot_1: Optional[UploadFile] = File(None),
-    extra_screenshot_2: Optional[UploadFile] = File(None),
+    config_file: UploadFile = File(...),
 ):
     client_ip = request.client.host if request.client else "unknown"
     if _is_rate_limited(client_ip):
@@ -195,19 +178,6 @@ async def analyze(
             "request": request,
             "error": str(exc),
         }, status_code=422)
-
-    # Collect evidence screenshots (optional)
-    screenshots = []
-    for upload, label in [
-        (ssh_screenshot,     "SSH Configuration (Administration → Device Access)"),
-        (smtp_screenshot,    "SMTP / Email Configuration (Email → General Settings)"),
-        (extra_screenshot_1, "Additional Configuration Screenshot 1"),
-        (extra_screenshot_2, "Additional Configuration Screenshot 2"),
-    ]:
-        shot = await _read_screenshot(upload, label)
-        if shot:
-            screenshots.append(shot)
-    ctx["screenshots"] = screenshots
 
     _prune_store()
     token = uuid.uuid4().hex

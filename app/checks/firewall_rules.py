@@ -92,7 +92,7 @@ def run(cfg) -> list[Finding]:
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
             any_any_rules.append(rule)
 
-        if log in ("disable", "disabled", "0", "false", "off") and action in ("accept", "allow"):
+        if log and log in ("disable", "disabled", "0", "false", "off") and action in ("accept", "allow"):
             no_log_rules.append(rule)
 
         if _is_any(services) and action in ("accept", "allow"):

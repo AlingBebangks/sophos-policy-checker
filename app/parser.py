@@ -110,7 +110,10 @@ def parse(xml_bytes: bytes) -> SophosConfig:
             "src_networks": _children_text(rule, "SourceNetworks/Network") or _children_text(rule, "SourceNetwork"),
             "dst_networks": _children_text(rule, "DestinationNetworks/Network") or _children_text(rule, "DestinationNetwork"),
             "services":     _children_text(rule, "Services/Service") or _children_text(rule, "Service"),
-            "log_traffic":  _text(rule, "LogTraffic", "Disable"),
+            "log_traffic":  (
+                _text(rule, "LogTraffic") or _text(rule, "Log") or
+                _text(rule, "PolicyLog") or _text(rule, "TrafficLog") or ""
+            ),
             "schedule":     _text(rule, "Schedule", "All the time"),
             "description":  _text(rule, "Description"),
             "position":     _text(rule, "Position"),
