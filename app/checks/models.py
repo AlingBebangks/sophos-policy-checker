@@ -43,6 +43,11 @@ class Finding:
     exploitability: str = "High"    # High / Medium / Low
     impact_scope:   str = "Network" # Network / Host / Local
     exposure:       str = "External"# External / Internal / Adjacent
+    # ── Detectability modifier: does logging capture this attack path? ──────
+    # "Logged"   → logs exist, attack is detectable → score reduced 10%
+    # "Unknown"  → logging state unclear            → no adjustment
+    # "Unlogged" → no logging on affected rules     → score increased 20%
+    detectability: str = "Unknown"  # Logged / Unknown / Unlogged
     # ── Real-world attack examples (injected by engine in deep mode) ────────
     real_world_examples: list[str] = field(default_factory=list)
 
@@ -52,6 +57,8 @@ _EXPLOIT_W  = {"High": 1.0, "Medium": 0.7, "Low": 0.4}
 _SCOPE_W    = {"Network": 1.0, "Host": 0.7, "Local": 0.4}
 _EXPOSURE_W = {"External": 1.0, "Adjacent": 0.7, "Internal": 0.4}
 _SEV_BASE   = {"Critical": 10, "High": 7, "Medium": 4, "Low": 1, "Info": 0}
+# Detectability multiplier: unlogged attack paths are harder to detect and respond to
+_DETECT_W   = {"Logged": 0.9, "Unknown": 1.0, "Unlogged": 1.2}
 
 
 def finding_score(f: Finding) -> float:
@@ -60,5 +67,6 @@ def finding_score(f: Finding) -> float:
         _EXPLOIT_W.get(f.exploitability, 1.0)
         * _SCOPE_W.get(f.impact_scope, 1.0)
         * _EXPOSURE_W.get(f.exposure, 1.0)
+        * _DETECT_W.get(f.detectability, 1.0)
     )
     return round(base * mult, 1)

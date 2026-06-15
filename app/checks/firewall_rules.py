@@ -60,11 +60,15 @@ def run(cfg) -> list[Finding]:
     any_any_rules: list[dict] = []
     wan_any_src_rules: list[dict] = []
     no_log_rules: list[dict] = []
+    no_log_wan_rules: list[dict] = []   # subset: WAN-facing rules with no logging
     disabled_accept_rules: list[dict] = []
     disabled_drop_rules: list[dict] = []
     all_services_rules: list[dict] = []
     risky_service_rules: list[tuple[dict, str]] = []
     pii_rules: list[dict] = []
+    # Track per-rule logging so other findings can set detectability
+    _logged_ids: set = set()
+    _unlogged_ids: set = set()
 
     for rule in rules:
         status = rule.get("status", "Enable").lower()
@@ -73,7 +77,15 @@ def run(cfg) -> list[Finding]:
         src_nets = rule.get("src_networks", [])
         dst_nets = rule.get("dst_networks", [])
         services = rule.get("services", [])
-        log = rule.get("log_traffic", "Disable").lower()
+        log = rule.get("log_traffic", "").lower()
+        rule_id = rule.get("id") or rule.get("policy_index")
+        is_wan = any(z.strip().lower() in _WAN_ZONES for z in src_zones)
+
+        # Track logging state for detectability scoring
+        if log and log not in ("disable", "disabled", "0", "false", "off"):
+            _logged_ids.add(rule_id)
+        elif log and log in ("disable", "disabled", "0", "false", "off"):
+            _unlogged_ids.add(rule_id)
 
         is_disabled = status in ("disable", "disabled", "0", "false")
         if is_disabled:
@@ -83,8 +95,7 @@ def run(cfg) -> list[Finding]:
                 disabled_accept_rules.append(rule)
 
         if (action in ("accept", "allow") and not is_disabled
-                and any(z.strip().lower() in _WAN_ZONES for z in src_zones)
-                and _is_any(src_nets)):
+                and is_wan and _is_any(src_nets)):
             wan_any_src_rules.append(rule)
 
         if _has_pii(rule.get("name", "") or "") or _has_pii(rule.get("description", "") or ""):
@@ -95,6 +106,8 @@ def run(cfg) -> list[Finding]:
 
         if log and log in ("disable", "disabled", "0", "false", "off") and action in ("accept", "allow"):
             no_log_rules.append(rule)
+            if is_wan:
+                no_log_wan_rules.append(rule)
 
         if _is_any(services) and action in ("accept", "allow"):
             all_services_rules.append(rule)
@@ -102,6 +115,19 @@ def run(cfg) -> list[Finding]:
         for svc in services:
             if svc.strip().lower() in _RISKY_SERVICES:
                 risky_service_rules.append((rule, svc))
+
+    def _detectability(rule_list: list[dict]) -> str:
+        """Return detectability label based on logging state of the affected rules."""
+        ids = {r.get("id") or r.get("policy_index") for r in rule_list}
+        any_unlogged = bool(ids & _unlogged_ids)
+        any_logged   = bool(ids & _logged_ids)
+        if any_unlogged and not any_logged:
+            return "Unlogged"
+        if any_logged and not any_unlogged:
+            return "Logged"
+        if any_unlogged:
+            return "Unlogged"  # mixed — penalise for the unlogged subset
+        return "Unknown"
 
     if any_any_rules:
         findings.append(Finding(
@@ -136,6 +162,7 @@ def run(cfg) -> list[Finding]:
             affected=[_label(r) for r in any_any_rules],
             affected_rules=any_any_rules,
             exploitability="High", impact_scope="Network", exposure="External",
+            detectability=_detectability(any_any_rules),
         ))
 
     if wan_any_src_rules:
@@ -173,6 +200,7 @@ def run(cfg) -> list[Finding]:
             affected=[_label(r) for r in wan_any_src_rules],
             affected_rules=wan_any_src_rules,
             exploitability="High", impact_scope="Network", exposure="External",
+            detectability=_detectability(wan_any_src_rules),
         ))
 
     if all_services_rules:
@@ -206,6 +234,7 @@ def run(cfg) -> list[Finding]:
             affected=[_label(r) for r in all_services_rules],
             affected_rules=all_services_rules,
             exploitability="High", impact_scope="Network", exposure="External",
+            detectability=_detectability(all_services_rules),
         ))
 
     if risky_service_rules:
@@ -245,16 +274,27 @@ def run(cfg) -> list[Finding]:
             affected=[f"{_label(r)} — flagged service: {s}" for r, s in risky_service_rules],
             affected_rules=annotated,
             exploitability="Medium", impact_scope="Network", exposure="Adjacent",
+            detectability=_detectability([r for r, _ in risky_service_rules]),
         ))
 
     if no_log_rules:
+        # WAN-facing rules without logging are significantly more dangerous:
+        # an attacker exploiting them leaves zero trace at the perimeter.
+        has_wan = bool(no_log_wan_rules)
+        sev     = Severity.HIGH if has_wan else Severity.MEDIUM
+        exp     = "External" if has_wan else "Internal"
+        detail_extra = (
+            f" {len(no_log_wan_rules)} of these rule(s) are WAN-facing — "
+            "perimeter traffic will be completely invisible to monitoring."
+            if has_wan else ""
+        )
         findings.append(Finding(
-            severity=Severity.MEDIUM,
+            severity=sev,
             category="Firewall Rules",
             title="Accept rules with logging disabled",
             detail=(
                 "Traffic permitted by these rules is not logged, making forensic "
-                "investigation and anomaly detection impossible."
+                f"investigation and anomaly detection impossible.{detail_extra}"
             ),
             recommendation=(
                 "Enable logging on all accept rules. Forward logs to a central SIEM "
@@ -276,7 +316,10 @@ def run(cfg) -> list[Finding]:
             ],
             affected=[_label(r) for r in no_log_rules],
             affected_rules=no_log_rules,
-            exploitability="Low", impact_scope="Local", exposure="Internal",
+            exploitability="Medium" if has_wan else "Low",
+            impact_scope="Network" if has_wan else "Local",
+            exposure=exp,
+            detectability="Unlogged",  # by definition — these rules have logging off
         ))
 
     if disabled_drop_rules:
@@ -314,6 +357,7 @@ def run(cfg) -> list[Finding]:
             affected=[_label(r) for r in disabled_drop_rules],
             affected_rules=disabled_drop_rules,
             exploitability="Medium", impact_scope="Network", exposure="Internal",
+            detectability=_detectability(disabled_drop_rules),
         ))
 
     if disabled_accept_rules:
@@ -344,6 +388,7 @@ def run(cfg) -> list[Finding]:
             affected=[_label(r) for r in disabled_accept_rules],
             affected_rules=disabled_accept_rules,
             exploitability="Low", impact_scope="Local", exposure="Internal",
+            detectability=_detectability(disabled_accept_rules),
         ))
 
     if pii_rules:
