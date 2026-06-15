@@ -102,7 +102,11 @@ def parse(xml_bytes: bytes) -> SophosConfig:
         cfg.firewall_rules.append({
             "id":           rule.get("id") or rule.get("Id") or _text(rule, "Id") or _text(rule, "RuleID"),
             "policy_index": idx + 1,
-            "name":         _text(rule, "Name"),
+            "name":         (
+                _text(rule, "Name") or _text(rule, "RuleName") or
+                _text(rule, "PolicyName") or _text(rule, "Description") or
+                rule.get("name") or rule.get("Name") or ""
+            ),
             "status":       _text(rule, "Status", "Enable"),
             "action":       _text(rule, "NetworkPolicy/Action") or _text(rule, "Action"),
             "src_zones":    _children_text(rule, "SourceZones/Zone")    or _children_text(rule, "SourceZone"),

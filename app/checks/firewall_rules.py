@@ -36,9 +36,10 @@ def _has_pii(text: str) -> bool:
 
 
 def _label(rule: dict) -> str:
-    name = rule.get("name") or "(unnamed)"
-    pos = rule.get("position") or rule.get("policy_index", "")
-    return f"{name} (policy position #{pos})"
+    name = rule.get("name") or rule.get("id") or ""
+    pos  = rule.get("position") or rule.get("policy_index", "")
+    label = name if name else f"Rule #{pos}"
+    return f"{label} (policy position #{pos})" if name else f"Rule #{pos} (no name in config)"
 
 
 def run(cfg) -> list[Finding]:
