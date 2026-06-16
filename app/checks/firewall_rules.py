@@ -4,7 +4,10 @@ from .models import Finding, Severity
 from .utils import v as _v, off as _off
 
 _ANY = {"any", "all", "*", ""}
-_WAN_ZONES = {"wan", "internet", "untrust", "external", "outside", "public"}
+_WAN_ZONES  = {"wan", "internet", "untrust", "external", "outside", "public"}
+_DMZ_ZONES  = {"dmz", "servers", "server", "perimeter", "semi-trusted"}
+_INT_ZONES  = {"lan", "internal", "inside", "trusted", "corp", "corporate",
+               "users", "user", "employees", "staff", "office", "local"}
 _RISKY_SERVICES = {
     "telnet", "ftp", "tftp", "rsh", "rlogin", "snmp", "snmpv1", "snmpv2",
     "finger", "chargen", "echo", "discard", "rpc", "nfs",
@@ -25,6 +28,18 @@ _FW_NAV = "Firewall → Rules and policies → Firewall rules"
 
 def _is_any(values: list[str]) -> bool:
     return not values or any(v.strip().lower() in _ANY for v in values)
+
+
+def _zone_tier(zones: list[str]) -> str:
+    """Classify a zone list into WAN / DMZ / Internal / Unknown."""
+    names = {z.strip().lower() for z in zones}
+    if names & _WAN_ZONES:
+        return "WAN"
+    if names & _DMZ_ZONES:
+        return "DMZ"
+    if names & _INT_ZONES:
+        return "Internal"
+    return "Unknown"
 
 
 def _has_pii(text: str) -> bool:
@@ -57,7 +72,13 @@ def run(cfg) -> list[Finding]:
         ))
         return findings
 
-    any_any_rules: list[dict] = []
+    # Any-to-any rules split by zone combination (each has a different risk profile)
+    aa_wan_to_any:  list[dict] = []   # WAN → * : internet can reach everything — Critical
+    aa_dmz_to_int:  list[dict] = []   # DMZ → Internal : compromised server pivots in — Critical
+    aa_int_to_wan:  list[dict] = []   # Internal → WAN : unrestricted exfil path — High
+    aa_int_to_dmz:  list[dict] = []   # Internal → DMZ : flat access to all servers — High
+    aa_int_to_int:  list[dict] = []   # Internal → Internal : lateral movement — Medium
+    aa_other:       list[dict] = []   # Unknown zones — Medium fallback
     wan_any_src_rules: list[dict] = []
     no_log_rules: list[dict] = []
     no_log_wan_rules: list[dict] = []   # subset: WAN-facing rules with no logging
@@ -102,7 +123,20 @@ def run(cfg) -> list[Finding]:
             pii_rules.append(rule)
 
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
-            any_any_rules.append(rule)
+            src_tier = _zone_tier(src_zones)
+            dst_tier = _zone_tier(dst_zones)
+            if src_tier == "WAN":
+                aa_wan_to_any.append(rule)
+            elif src_tier == "DMZ" and dst_tier == "Internal":
+                aa_dmz_to_int.append(rule)
+            elif src_tier == "Internal" and dst_tier == "WAN":
+                aa_int_to_wan.append(rule)
+            elif src_tier == "Internal" and dst_tier == "DMZ":
+                aa_int_to_dmz.append(rule)
+            elif src_tier == "Internal" and dst_tier in ("Internal", "Unknown"):
+                aa_int_to_int.append(rule)
+            else:
+                aa_other.append(rule)
 
         if log and log in ("disable", "disabled", "0", "false", "off") and action in ("accept", "allow"):
             no_log_rules.append(rule)
@@ -129,40 +163,174 @@ def run(cfg) -> list[Finding]:
             return "Unlogged"  # mixed — penalise for the unlogged subset
         return "Unknown"
 
-    if any_any_rules:
+    _aa_nav = (
+        f"{_FW_NAV}\n"
+        "→ Click the rule name → Edit → replace 'Any' in Source/Destination networks "
+        "with specific host or network objects → Save"
+    )
+    _aa_refs = [
+        "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+        "MITRE ATT&CK TA0008 – Lateral Movement",
+        "MITRE ATT&CK T1133 – External Remote Services",
+        "OWASP A05:2021 – Security Misconfiguration",
+        "CIS Control 4 – Secure Configuration of Enterprise Assets and Software",
+        "NIST SP 800-41 Rev 1 §3.2 – Firewall Policy",
+    ]
+
+    if aa_wan_to_any:
         findings.append(Finding(
             severity=Severity.CRITICAL,
             category="Firewall Rules",
-            title="Any-to-Any accept rules detected",
+            title="Any-to-Any accept from WAN — internet can reach all internal hosts",
             detail=(
-                "Rules that accept traffic from any source to any destination bypass all "
-                "network segmentation and expose all hosts to each other."
+                "These rules accept traffic from the WAN zone to any destination with no network "
+                "restriction. Any host on the internet can directly reach every internal host and "
+                "service, completely collapsing the network perimeter. This is the highest-risk "
+                "firewall misconfiguration possible."
             ),
             recommendation=(
-                "Replace any-to-any rules with least-privilege rules specifying explicit "
-                "source networks, destination networks, and required services only. "
-                "This directly mitigates MITRE ATT&CK Initial Access (T1190) and Lateral Movement (TA0008) "
-                "by eliminating unrestricted network paths. "
-                "Aligns with OWASP A05:2021 – Security Misconfiguration and "
-                "CIS Control 4 (Secure Configuration of Enterprise Assets)."
+                "Remove or immediately restrict these rules. Specify the exact destination host/network "
+                "and service required. WAN-to-any rules enable MITRE ATT&CK T1190 (Exploit Public-Facing "
+                "Application) and T1133 (External Remote Services) for every device on the network. "
+                "No business case justifies unrestricted internet-to-internal access. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
             ),
-            location=(
-                f"{_FW_NAV}\n"
-                "→ Click the rule name → Edit → change Source networks and Destination networks "
-                "from 'Any' to specific host/network objects → Save"
+            location=_aa_nav, references=_aa_refs,
+            affected=[_label(r) for r in aa_wan_to_any],
+            affected_rules=aa_wan_to_any,
+            exploitability="High", impact_scope="Network", exposure="External",
+            detectability=_detectability(aa_wan_to_any),
+        ))
+
+    if aa_dmz_to_int:
+        findings.append(Finding(
+            severity=Severity.CRITICAL,
+            category="Firewall Rules",
+            title="Any-to-Any accept from DMZ to Internal — pivot path from compromised server",
+            detail=(
+                "These rules allow unrestricted traffic from the DMZ to the internal network. "
+                "If any DMZ host is compromised (e.g. a public-facing web server), the attacker "
+                "gains an unrestricted pivot path directly into the internal LAN, bypassing the "
+                "intended segmentation that DMZ architecture provides."
             ),
+            recommendation=(
+                "DMZ-to-Internal traffic must be explicitly denied by default. Only specific, "
+                "necessary return flows (e.g. database callbacks) should be permitted, locked "
+                "to exact source/destination IPs and ports. "
+                "This directly blocks MITRE ATT&CK T1021 (Remote Services) and TA0008 (Lateral Movement) "
+                "from a compromised DMZ host. Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            location=_aa_nav, references=_aa_refs,
+            affected=[_label(r) for r in aa_dmz_to_int],
+            affected_rules=aa_dmz_to_int,
+            exploitability="High", impact_scope="Network", exposure="Adjacent",
+            detectability=_detectability(aa_dmz_to_int),
+        ))
+
+    if aa_int_to_wan:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Firewall Rules",
+            title="Any-to-Any accept from Internal to WAN — unrestricted outbound to internet",
+            detail=(
+                "These rules allow any internal host to send traffic to any internet destination "
+                "on any port. This creates an unrestricted data exfiltration path and enables "
+                "malware C2 callbacks on any port."
+            ),
+            recommendation=(
+                "Restrict outbound WAN access to specific approved destination networks and services. "
+                "Use URL filtering or web proxy to control outbound HTTP/HTTPS. "
+                "Unrestricted outbound enables MITRE ATT&CK T1041 (Exfiltration Over C2 Channel), "
+                "T1071 (Application Layer Protocol), and T1048 (Exfiltration Over Alternative Protocol). "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            location=_aa_nav,
             references=[
-                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
-                "MITRE ATT&CK TA0008 – Lateral Movement",
-                "MITRE ATT&CK T1133 – External Remote Services",
+                "MITRE ATT&CK T1041 – Exfiltration Over C2 Channel",
+                "MITRE ATT&CK T1071 – Application Layer Protocol",
+                "MITRE ATT&CK T1048 – Exfiltration Over Alternative Protocol",
                 "OWASP A05:2021 – Security Misconfiguration",
                 "CIS Control 4 – Secure Configuration of Enterprise Assets and Software",
-                "NIST SP 800-41 Rev 1 §3.2 – Firewall Policy",
             ],
-            affected=[_label(r) for r in any_any_rules],
-            affected_rules=any_any_rules,
-            exploitability="High", impact_scope="Network", exposure="External",
-            detectability=_detectability(any_any_rules),
+            affected=[_label(r) for r in aa_int_to_wan],
+            affected_rules=aa_int_to_wan,
+            exploitability="Medium", impact_scope="Network", exposure="External",
+            detectability=_detectability(aa_int_to_wan),
+        ))
+
+    if aa_int_to_dmz:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Firewall Rules",
+            title="Any-to-Any accept from Internal to DMZ — flat access to all DMZ servers",
+            detail=(
+                "Internal hosts can reach any DMZ server on any port without restriction. "
+                "A compromised internal workstation can attack all DMZ services directly. "
+                "This also violates the principle of least privilege for server access."
+            ),
+            recommendation=(
+                "Restrict internal-to-DMZ access to specific source hosts and the minimum required "
+                "ports (e.g. only the DB server on 1433 from the app server's IP). "
+                "This limits MITRE ATT&CK T1021 (Remote Services) lateral movement from a "
+                "compromised workstation to DMZ servers. Aligns with OWASP A05:2021."
+            ),
+            location=_aa_nav, references=_aa_refs,
+            affected=[_label(r) for r in aa_int_to_dmz],
+            affected_rules=aa_int_to_dmz,
+            exploitability="Medium", impact_scope="Network", exposure="Adjacent",
+            detectability=_detectability(aa_int_to_dmz),
+        ))
+
+    if aa_int_to_int:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category="Firewall Rules",
+            title="Any-to-Any accept within Internal network — no east-west segmentation",
+            detail=(
+                "Internal hosts can reach any other internal host on any port. "
+                "Once an attacker compromises one workstation or server, they can freely move "
+                "laterally across the entire internal network with no firewall obstruction."
+            ),
+            recommendation=(
+                "Implement east-west (internal) segmentation using VLANs and firewall rules "
+                "that restrict host-to-host communication to only what is operationally required. "
+                "Flat internal networks directly enable MITRE ATT&CK TA0008 (Lateral Movement), "
+                "T1021 (Remote Services), and T1570 (Lateral Tool Transfer). "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            location=_aa_nav,
+            references=[
+                "MITRE ATT&CK TA0008 – Lateral Movement",
+                "MITRE ATT&CK T1021 – Remote Services",
+                "MITRE ATT&CK T1570 – Lateral Tool Transfer",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "CIS Control 12.2 – Establish and Maintain a Secure Network Architecture",
+            ],
+            affected=[_label(r) for r in aa_int_to_int],
+            affected_rules=aa_int_to_int,
+            exploitability="Medium", impact_scope="Network", exposure="Internal",
+            detectability=_detectability(aa_int_to_int),
+        ))
+
+    if aa_other:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category="Firewall Rules",
+            title="Any-to-Any accept rules with unclassified zone combination",
+            detail=(
+                "These rules accept traffic from any source to any destination but their zone "
+                "names did not match known WAN/DMZ/Internal patterns. The risk depends on what "
+                "those zones represent — review manually."
+            ),
+            recommendation=(
+                "Review each rule and restrict source networks, destination networks, and services "
+                "to the minimum required. Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            location=_aa_nav, references=_aa_refs,
+            affected=[_label(r) for r in aa_other],
+            affected_rules=aa_other,
+            exploitability="Medium", impact_scope="Network", exposure="Internal",
+            detectability=_detectability(aa_other),
         ))
 
     if wan_any_src_rules:
