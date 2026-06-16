@@ -203,6 +203,19 @@ body.web{background:#e8eaed}
 .tag-any{background:#fde8e8;color:#c0392b;font-weight:700}
 .tag-warn{background:#fef3e2;color:#d35400;font-weight:600}
 .tag-off{background:#fde8e8;color:#c0392b}
+/* Zone classification badges */
+.zt-internet{background:#fde8e8;color:#922b21;font-weight:700;border-radius:2px;
+  padding:1px 5px;font-size:0.65rem;margin-left:3px;vertical-align:middle}
+.zt-dmz{background:#fef3e2;color:#784212;font-weight:700;border-radius:2px;
+  padding:1px 5px;font-size:0.65rem;margin-left:3px;vertical-align:middle}
+.zt-internal{background:#eafaf1;color:#145a32;font-weight:700;border-radius:2px;
+  padding:1px 5px;font-size:0.65rem;margin-left:3px;vertical-align:middle}
+.zt-vpn{background:#eaf4fc;color:#1a5276;font-weight:700;border-radius:2px;
+  padding:1px 5px;font-size:0.65rem;margin-left:3px;vertical-align:middle}
+.nt-private{background:#eafaf1;color:#145a32;font-size:0.62rem;border-radius:2px;
+  padding:1px 4px;margin-left:2px;vertical-align:middle}
+.nt-public{background:#fde8e8;color:#922b21;font-size:0.62rem;border-radius:2px;
+  padding:1px 4px;margin-left:2px;vertical-align:middle}
 .tag-on{background:#eafaf1;color:#1e8449}
 .act-a{color:#1e8449;font-weight:700}
 .act-d{color:#c0392b;font-weight:700}
@@ -375,6 +388,11 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   .tag-warn-p {color:#d35400!important;font-weight:600}
   .tag-off-p  {color:#c0392b!important}
   .tag-on-p   {color:#1e8449!important}
+  /* Zone/network badges in PDF */
+  .zt-internet{color:#922b21!important;font-weight:700;font-size:6.5pt}
+  .zt-dmz     {color:#784212!important;font-weight:700;font-size:6.5pt}
+  .zt-internal{color:#145a32!important;font-weight:700;font-size:6.5pt}
+  .zt-vpn     {color:#1a5276!important;font-weight:700;font-size:6.5pt}
 
   /* ── Real-world cases box (deep mode) ───────────────────── */
   .pdf-cases-box{background:#fdf6ff!important;border-left:3pt solid #6c3483!important;
@@ -449,6 +467,33 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 }
 </style>
 </head>
+
+{# ── Zone / Network classification macros ────────────────────────────────── #}
+{% set _wan_zones  = ['wan','internet','untrust','external','outside','public'] %}
+{% set _dmz_zones  = ['dmz','servers','server','perimeter','semi-trusted'] %}
+{% set _int_zones  = ['lan','internal','inside','trusted','corp','corporate',
+                       'users','user','employees','staff','office','local'] %}
+{% set _vpn_zones  = ['vpn','ssl-vpn','sslvpn','ipsec','l2tp','pptp','remote'] %}
+
+{% macro zone_badge(z) -%}
+  {%- set zl = z|lower -%}
+  {%- if zl in _wan_zones -%}<span class="zt-internet">🌐 Internet/WAN</span>
+  {%- elif zl in _dmz_zones -%}<span class="zt-dmz">🔶 DMZ</span>
+  {%- elif zl in _vpn_zones -%}<span class="zt-vpn">🔒 VPN</span>
+  {%- elif zl in _int_zones -%}<span class="zt-internal">🏢 Internal</span>
+  {%- else -%}<span class="zt-internal" style="background:#f0f3f7;color:#555">{{ z }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro net_badge(n) -%}
+  {%- set nl = n|lower -%}
+  {%- if nl in ['any','all','*',''] -%}<span class="tag-any">⚠ Any</span>
+  {%- elif nl.startswith('10.') or nl.startswith('192.168.') or nl.startswith('172.') -%}
+    <span class="tag">{{ n }}</span><span class="nt-private">Private</span>
+  {%- else -%}<span class="tag">{{ n }}</span><span class="nt-public">Public/Internet</span>
+  {%- endif -%}
+{%- endmacro %}
+
 
 {% if pdf_mode and exec_mode %}
 {# ══════════════════════════════════════════════════════════════
@@ -694,8 +739,8 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
             <td>{{ r.policy_index if r.policy_index else r.position if r.position else '?' }}</td>
             <td><strong>{{ r.name or '(unnamed)' }}</strong>{% if r._flagged_service %} — <span class="tag-warn-p">{{ r._flagged_service }}</span>{% endif %}</td>
             <td>{% if action in ['accept','allow'] %}<span class="tag-a">ACCEPT</span>{% else %}<span class="tag-d">{{ r.action|upper }}</span>{% endif %}</td>
-            <td>{% for z in r.src_zones %}{{ z }} {% endfor %}/ {% for n in r.src_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}</td>
-            <td>{% for z in r.dst_zones %}{{ z }} {% endfor %}/ {% for n in r.dst_networks %}<span class="{% if n|lower in ['any','all','*'] %}tag-any-p{% endif %}">{{ n }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}</td>
+            <td>{% for z in r.src_zones %}{{ zone_badge(z) }} {% endfor %}{% if not r.src_zones %}<span class="tag-any-p">Any Zone</span>{% endif %} / {% for n in r.src_networks %}{% if n|lower in ['any','all','*'] %}<span class="tag-any-p">⚠ Any</span>{% elif n.startswith('10.') or n.startswith('192.168.') or n.startswith('172.') %}<span>{{ n }}</span> <span style="color:#145a32;font-size:6pt">[Private]</span>{% else %}<span>{{ n }}</span> <span style="color:#922b21;font-size:6pt">[Public]</span>{% endif %} {% else %}<span class="tag-any-p">⚠ Any</span>{% endfor %}</td>
+            <td>{% for z in r.dst_zones %}{{ zone_badge(z) }} {% endfor %}{% if not r.dst_zones %}<span class="tag-any-p">Any Zone</span>{% endif %} / {% for n in r.dst_networks %}{% if n|lower in ['any','all','*'] %}<span class="tag-any-p">⚠ Any</span>{% elif n.startswith('10.') or n.startswith('192.168.') or n.startswith('172.') %}<span>{{ n }}</span> <span style="color:#145a32;font-size:6pt">[Private]</span>{% else %}<span>{{ n }}</span> <span style="color:#922b21;font-size:6pt">[Public]</span>{% endif %} {% else %}<span class="tag-any-p">⚠ Any</span>{% endfor %}</td>
             <td>{% for s in r.services %}<span class="{% if s|lower in ['any','all','*'] %}tag-any-p{% elif s|lower in ['telnet','ftp','tftp','rsh','snmp','snmpv1','snmpv2','rpc','nfs'] %}tag-warn-p{% endif %}">{{ s }} </span>{% else %}<span class="tag-any-p">Any</span>{% endfor %}</td>
             <td>{% if log in ['disable','disabled','0','false','off'] %}<span class="tag-off-p">Off</span>{% else %}<span class="tag-on-p">On</span>{% endif %}</td>
           </tr>
@@ -884,11 +929,11 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
                 </div>
                 <div class="rf">
                   <div class="rf-l">Source Zone → Network</div>
-                  <div class="rf-v">{% for z in r.src_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %} → {% for n in r.src_networks %}<span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}</div>
+                  <div class="rf-v">{% for z in r.src_zones %}{{ zone_badge(z) }}{% else %}<span class="tag tag-any">Any Zone</span>{% endfor %} → {% for n in r.src_networks %}{{ net_badge(n) }}{% else %}<span class="tag-any">⚠ Any</span>{% endfor %}</div>
                 </div>
                 <div class="rf">
                   <div class="rf-l">Destination Zone → Network</div>
-                  <div class="rf-v">{% for z in r.dst_zones %}<span class="tag">{{ z }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %} → {% for n in r.dst_networks %}<span class="tag {% if n|lower in ['any','all','*'] %}tag-any{% endif %}">{{ n }}</span>{% else %}<span class="tag tag-any">Any</span>{% endfor %}</div>
+                  <div class="rf-v">{% for z in r.dst_zones %}{{ zone_badge(z) }}{% else %}<span class="tag tag-any">Any Zone</span>{% endfor %} → {% for n in r.dst_networks %}{{ net_badge(n) }}{% else %}<span class="tag-any">⚠ Any</span>{% endfor %}</div>
                 </div>
                 <div class="rf full">
                   <div class="rf-l">Services</div>
