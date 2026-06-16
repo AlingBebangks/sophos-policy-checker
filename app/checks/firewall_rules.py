@@ -95,6 +95,7 @@ def run(cfg) -> list[Finding]:
         status = rule.get("status", "Enable").lower()
         action = rule.get("action", "").lower()
         src_zones = rule.get("src_zones", [])
+        dst_zones = rule.get("dst_zones", [])
         src_nets = rule.get("src_networks", [])
         dst_nets = rule.get("dst_networks", [])
         services = rule.get("services", [])
