@@ -50,8 +50,10 @@ def _risk_score(findings: list, counts: dict) -> dict:
     import math
     raw = sum(finding_score(f) for f in findings)
     # Logarithmic normalization: asymptotically approaches 100, never hard-caps.
-    # Tuning constant 30 → 1 Critical ≈ 28, 5 Criticals ≈ 81, 20 Criticals ≈ 99.
-    normalized = round(min(100.0, 100.0 * (1 - math.exp(-raw / 30))), 1)
+    # Tuning constant 22 keeps the same display behaviour after the CVSS-aligned
+    # per-finding score change (0–10 cap, tighter multipliers):
+    #   1 Critical (score 9.0) ≈ 33 · 5 Criticals ≈ 87 · 10+ ≈ 98+
+    normalized = round(min(100.0, 100.0 * (1 - math.exp(-raw / 22))), 1)
     return {"raw": round(raw, 1), "normalized": normalized}
 
 
