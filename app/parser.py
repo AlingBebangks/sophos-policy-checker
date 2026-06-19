@@ -45,6 +45,8 @@ class SophosConfig:
     app_control:    list[dict]  = field(default_factory=list)
     ssl_inspection: dict        = field(default_factory=dict)
     email_settings: dict        = field(default_factory=dict)
+    # Central / cloud management
+    central_mgmt:   dict        = field(default_factory=dict)
     # Misc
     services:       list[dict]  = field(default_factory=list)
     service_defs:   dict        = field(default_factory=dict)  # name -> {ports, protocol}
@@ -293,6 +295,11 @@ def parse(xml_bytes: bytes) -> SophosConfig:
     email_el = _first(root, ".//EmailSettings", ".//SMTPSettings", ".//EmailProtection")
     if email_el is not None:
         cfg.email_settings = _el_to_dict(email_el)
+
+    cm_el = _first(root, ".//CentralManagement", ".//SophosCloud", ".//SophosCentral",
+                   ".//CloudManagement", ".//CentrallyManaged")
+    if cm_el is not None:
+        cfg.central_mgmt = _el_to_dict(cm_el)
 
     for svc in root.iter("Services"):
         cfg.services.append(_el_to_dict(svc))

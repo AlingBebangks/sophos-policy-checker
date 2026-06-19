@@ -310,6 +310,74 @@ def run(cfg) -> list[Finding]:
             exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
 
+    # ── Sophos Central / Central Management ──────────────────────────────────
+    cm = cfg.central_mgmt
+    if not cm:
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category=_S,
+            title="Sophos Central management not detected",
+            detail=(
+                "No central management configuration was found. The firewall appears to be "
+                "managed locally only. Standalone-managed firewalls have no centralised change "
+                "tracking, no enforced policy baseline, and no cross-device visibility — "
+                "changes can be made without a review process."
+            ),
+            recommendation=(
+                "Connect the firewall to Sophos Central for centralised management, policy enforcement, "
+                "firmware management, and audit logging. Central management ensures all changes "
+                "are logged and attributed. Without it, MITRE ATT&CK T1562.004 "
+                "(Impair Defenses: Disable or Modify System Firewall) changes may go undetected "
+                "with no central audit trail. "
+                "Aligns with CIS Control 4.1 – Establish and Maintain a Secure Configuration Process."
+            ),
+            references=[
+                "MITRE ATT&CK T1562.004 – Impair Defenses: Disable or Modify System Firewall",
+                "CIS Control 4.1 – Establish and Maintain a Secure Configuration Process",
+                "OWASP A05:2021 – Security Misconfiguration",
+            ],
+            location=(
+                "System → Sophos Central\n"
+                "→ Register the firewall to your Sophos Central account → Apply"
+            ),
+            exploitability="Low", impact_scope="Local", exposure="Internal",
+        ))
+    else:
+        status = _v(cm, "Status", "Enable", "Connected", "Registered")
+        if _off(status):
+            findings.append(Finding(
+                severity=Severity.LOW,
+                category=_S,
+                title="Sophos Central management is disconnected",
+                detail=(
+                    "A Sophos Central configuration block was found but the device is not connected "
+                    "or registration is disabled. Policy enforcement and audit logging from central "
+                    "management are not active."
+                ),
+                recommendation=(
+                    "Reconnect the firewall to Sophos Central and confirm registration status. "
+                    "Aligns with CIS Control 4.1 – Establish and Maintain a Secure Configuration Process."
+                ),
+                references=[
+                    "CIS Control 4.1 – Establish and Maintain a Secure Configuration Process",
+                    "MITRE ATT&CK T1562.004 – Impair Defenses: Disable or Modify System Firewall",
+                ],
+                location="System → Sophos Central → Reconnect / re-register → Apply",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
+            ))
+        else:
+            findings.append(Finding(
+                severity=Severity.INFO,
+                category=_S,
+                title="Sophos Central management is active",
+                detail=(
+                    "The firewall is registered with and managed by Sophos Central. "
+                    "Centralised change tracking, policy enforcement, and cross-device visibility are available."
+                ),
+                recommendation="Verify that policy baselines and firmware management are configured in Sophos Central.",
+                exploitability="Low", impact_scope="Local", exposure="Internal",
+            ))
+
     # ── HA ────────────────────────────────────────────────────────────────────
     ha = cfg.ha_settings
     if ha:

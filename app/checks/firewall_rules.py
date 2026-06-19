@@ -82,11 +82,15 @@ def run(cfg) -> list[Finding]:
     wan_any_src_rules: list[dict] = []
     no_log_rules: list[dict] = []
     no_log_wan_rules: list[dict] = []   # subset: WAN-facing rules with no logging
+    no_ips_rules: list[dict] = []       # WAN-facing accept rules with no IPS policy
     disabled_accept_rules: list[dict] = []
     disabled_drop_rules: list[dict] = []
     all_services_rules: list[dict] = []
     risky_service_rules: list[tuple[dict, str]] = []
     pii_rules: list[dict] = []
+    shadowed_rules: list[tuple[dict, dict]] = []  # (shadowed_rule, shadowing_rule)
+    duplicate_rules: list[tuple[dict, dict]] = []  # (later_rule, earlier_rule)
+    _rule_fingerprints: dict = {}  # fingerprint -> first rule seen
     # Track per-rule logging so other findings can set detectability
     _logged_ids: set = set()
     _unlogged_ids: set = set()
@@ -144,12 +148,71 @@ def run(cfg) -> list[Finding]:
             if is_wan:
                 no_log_wan_rules.append(rule)
 
+        # IPS policy missing on WAN-facing or DMZ-sourced accept rules
+        if (action in ("accept", "allow") and not is_disabled
+                and (is_wan or _zone_tier(src_zones) == "DMZ")
+                and not rule.get("ips_policy", "").strip()):
+            no_ips_rules.append(rule)
+
         if _is_any(services) and action in ("accept", "allow"):
             all_services_rules.append(rule)
 
         for svc in services:
             if svc.strip().lower() in _RISKY_SERVICES:
                 risky_service_rules.append((rule, svc))
+
+        # Duplicate rule detection: same action + zones + networks + services
+        fp = (
+            action,
+            tuple(sorted(z.lower() for z in src_zones)),
+            tuple(sorted(z.lower() for z in dst_zones)),
+            tuple(sorted(n.lower() for n in src_nets)),
+            tuple(sorted(n.lower() for n in dst_nets)),
+            tuple(sorted(s.lower() for s in services)),
+        )
+        if fp in _rule_fingerprints:
+            duplicate_rules.append((rule, _rule_fingerprints[fp]))
+        else:
+            _rule_fingerprints[fp] = rule
+
+    # ── Shadowed rule detection ───────────────────────────────────────────────
+    # A rule is shadowed when a preceding rule already covers ALL its traffic:
+    # broader action (accept/accept or deny/deny) + Any src + Any dst + Any svc
+    # that encompasses the later rule's zones.
+    _any_accept_seen: list[dict] = []  # any-src any-dst any-svc accept rules seen so far
+    _any_deny_seen:   list[dict] = []  # same but for deny/drop
+
+    def _zones_covered(broad: list, narrow: list) -> bool:
+        """True if broad zone list covers narrow (Any covers everything)."""
+        if not broad:       # broad is Any — covers all zones
+            return True
+        if not narrow:      # narrow is also Any — only covered if broad is also Any
+            return not broad
+        return set(z.lower() for z in narrow).issubset(z.lower() for z in broad)
+
+    for rule in rules:
+        action  = rule.get("action", "").lower()
+        sz      = rule.get("src_zones", [])
+        dz      = rule.get("dst_zones", [])
+        sn      = rule.get("src_networks", [])
+        dn      = rule.get("dst_networks", [])
+        sv      = rule.get("services", [])
+        is_acc  = action in ("accept", "allow")
+        is_den  = action in ("drop", "deny", "reject")
+
+        # Check if this rule is shadowed by any earlier any-to-any rule
+        shadow_pool = _any_accept_seen if is_acc else (_any_deny_seen if is_den else [])
+        for broad in shadow_pool:
+            if (_zones_covered(broad.get("src_zones", []), sz)
+                    and _zones_covered(broad.get("dst_zones", []), dz)):
+                shadowed_rules.append((rule, broad))
+                break
+
+        # Track this rule if it is an any-to-any-any rule (potential shadower)
+        if is_acc and _is_any(sn) and _is_any(dn) and _is_any(sv):
+            _any_accept_seen.append(rule)
+        elif is_den and _is_any(sn) and _is_any(dn) and _is_any(sv):
+            _any_deny_seen.append(rule)
 
     def _detectability(rule_list: list[dict]) -> str:
         """Return detectability label based on logging state of the affected rules."""
@@ -594,6 +657,129 @@ def run(cfg) -> list[Finding]:
             affected=[_label(r) for r in pii_rules],
             affected_rules=pii_rules,
             exploitability="Low", impact_scope="Local", exposure="Internal",
+        ))
+
+    # ── IPS policy not assigned to WAN/DMZ accept rules ──────────────────────
+    if no_ips_rules:
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Firewall Rules",
+            title="WAN/DMZ accept rules with no IPS policy assigned",
+            detail=(
+                "These rules permit inbound traffic from external or DMZ zones but have no "
+                "Intrusion Prevention System (IPS) policy attached. Without IPS, exploit attempts "
+                "against permitted services pass through the firewall completely uninspected — "
+                "the global IPS toggle being on is insufficient if individual rules do not reference a policy."
+            ),
+            recommendation=(
+                "Edit each affected rule and assign an IPS policy under 'Security features'. "
+                "Use the most restrictive policy appropriate for the service (e.g. 'LAN to DMZ' or "
+                "'General Threat Protection'). "
+                "Rules without IPS directly enable MITRE ATT&CK T1190 (Exploit Public-Facing Application) "
+                "and T1203 (Exploitation for Client Execution) — known CVEs are exploited without detection. "
+                "Aligns with OWASP A06:2021 – Vulnerable and Outdated Components."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Click the rule name → Edit → scroll to 'Security features' "
+                "→ select an IPS policy from the dropdown → Save"
+            ),
+            references=[
+                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                "MITRE ATT&CK T1203 – Exploitation for Client Execution",
+                "OWASP A06:2021 – Vulnerable and Outdated Components",
+                "CIS Control 13.3 – Deploy a Network Intrusion Detection Solution",
+                "NIST SP 800-94 – Guide to Intrusion Detection and Prevention Systems",
+            ],
+            affected=[_label(r) for r in no_ips_rules],
+            affected_rules=no_ips_rules,
+            exploitability="High", impact_scope="Network", exposure="External",
+            detectability=_detectability(no_ips_rules),
+        ))
+
+    # ── Shadowed rules ────────────────────────────────────────────────────────
+    if shadowed_rules:
+        shadowed_only = [r for r, _ in shadowed_rules]
+        shadow_detail = "; ".join(
+            f"{_label(r)} shadowed by {_label(broad)}"
+            for r, broad in shadowed_rules[:5]
+        )
+        if len(shadowed_rules) > 5:
+            shadow_detail += f" (and {len(shadowed_rules) - 5} more)"
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category="Firewall Rules",
+            title="Shadowed rules detected — rules that can never be matched",
+            detail=(
+                "One or more rules appear after a broader any-to-any rule that already matches "
+                "the same traffic. Because Sophos evaluates rules top-down (first match wins), "
+                "these rules are permanently bypassed and their intent — whether to block or allow — "
+                f"is never enforced. Detail: {shadow_detail}."
+            ),
+            recommendation=(
+                "Review policy order and move specific rules ABOVE the broader any-to-any rule, "
+                "or replace the any-to-any rule with explicit per-service entries. "
+                "Shadowed deny rules are especially dangerous: an admin may believe traffic is blocked "
+                "when it is actually accepted by the earlier any-to-any permit. "
+                "This is a common configuration path that enables MITRE ATT&CK T1562.004 "
+                "(Impair Defenses: Disable or Modify System Firewall) — the firewall policy "
+                "appears correct but a rule never fires. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Drag the specific rule to a position ABOVE the any-to-any rule → Save\n"
+                "Or remove the any-to-any rule and replace with explicit permit entries"
+            ),
+            references=[
+                "MITRE ATT&CK T1562.004 – Impair Defenses: Disable or Modify System Firewall",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "NIST SP 800-41 Rev 1 §3.3 – Firewall Rule Order",
+                "CIS Control 4.1 – Establish and Maintain a Secure Configuration Process",
+            ],
+            affected=[f"{_label(r)} (shadowed by {_label(broad)})" for r, broad in shadowed_rules],
+            affected_rules=shadowed_only,
+            exploitability="Low", impact_scope="Network", exposure="Internal",
+            detectability=_detectability(shadowed_only),
+        ))
+
+    # ── Duplicate rules ───────────────────────────────────────────────────────
+    if duplicate_rules:
+        dup_only = [r for r, _ in duplicate_rules]
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category="Firewall Rules",
+            title="Duplicate firewall rules detected",
+            detail=(
+                "Two or more rules have identical source zone, destination zone, source network, "
+                "destination network, service, and action. Duplicate rules add policy clutter, "
+                "make auditing harder, and increase the risk that a change to one copy is not "
+                "reflected in the other, causing inconsistent enforcement."
+            ),
+            recommendation=(
+                "Remove or consolidate duplicate rules. Keep only one authoritative entry for each "
+                "traffic flow. Review both copies before deleting to confirm they are truly identical. "
+                "Duplicate rules can also mask intentional differences and obscure MITRE ATT&CK "
+                "T1562.004 (Disable or Modify System Firewall) attempts if an attacker inserts "
+                "a near-duplicate with different security profiles. "
+                "Aligns with OWASP A05:2021 – Security Misconfiguration."
+            ),
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Identify and delete the duplicate rule → Save"
+            ),
+            references=[
+                "MITRE ATT&CK T1562.004 – Impair Defenses: Disable or Modify System Firewall",
+                "OWASP A05:2021 – Security Misconfiguration",
+                "CIS Control 4.1 – Establish and Maintain a Secure Configuration Process",
+            ],
+            affected=[
+                f"{_label(r)} — duplicate of {_label(orig)}"
+                for r, orig in duplicate_rules
+            ],
+            affected_rules=dup_only,
+            exploitability="Low", impact_scope="Local", exposure="Internal",
+            detectability=_detectability(dup_only),
         ))
 
     return findings
