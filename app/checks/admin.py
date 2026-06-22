@@ -341,6 +341,184 @@ def run(cfg) -> list[Finding]:
             exploitability="Medium", impact_scope="Host", exposure="Adjacent",
         ))
 
+    # ── CIS 1.1.2 – Login disclaimer ─────────────────────────────────────────
+    disclaimer = _val(admin, "LoginDisclaimer", "BannerMessage", "LoginBanner", "Disclaimer")
+    if _off(disclaimer) or not disclaimer:
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category="Administration",
+            title="CIS 1.1.2 – Login disclaimer / banner not configured",
+            detail=(
+                "No login banner or disclaimer is configured. A legal login banner notifies "
+                "users that the system is monitored, provides legal notice for acceptable use, "
+                "and is required by many compliance frameworks."
+            ),
+            recommendation=(
+                "Enable a login disclaimer under System → Administration → Device Access → "
+                "Login disclaimer. Include: 'Authorised users only. This system is monitored.' "
+                "Aligns with CIS Sophos Benchmark §1.1.2."
+            ),
+            references=[
+                "CIS Sophos Benchmark §1.1.2",
+                "NIST SP 800-53 Rev 5 AC-8 – System Use Notification",
+            ],
+            location=(
+                "Administration → Device access\n"
+                "→ Login disclaimer → Enable → Enter disclaimer text → Apply"
+            ),
+            exploitability="Low", impact_scope="Local", exposure="Internal",
+        ))
+
+    # ── CIS 1.1.7 – Valid certificate for webadmin interface ─────────────────
+    web_cert = _val(admin, "WebAdminCertificate", "AdminCertificate", "Certificate",
+                    "HTTPSCertificate", "WebServerCertificate")
+    if not web_cert or web_cert.lower() in ("default", "self-signed", "selfsigned", "factory"):
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category="Administration",
+            title="CIS 1.1.7 – Default/self-signed certificate used for webadmin interface",
+            detail=(
+                "The web admin interface is using a default or self-signed certificate. "
+                "Browsers cannot verify the identity of the management console, opening the "
+                "door to man-in-the-middle attacks against administrator sessions."
+            ),
+            recommendation=(
+                "Replace the default certificate with one issued by a trusted internal CA or "
+                "public CA. Navigate to Administration → Admin and user settings → "
+                "select a valid certificate for the HTTPS admin interface. "
+                "Aligns with CIS Sophos Benchmark §1.1.7."
+            ),
+            references=[
+                "CIS Sophos Benchmark §1.1.7",
+                "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                "OWASP A02:2021 – Cryptographic Failures",
+            ],
+            location=(
+                "Administration → Admin and user settings\n"
+                "→ Certificate for HTTPS → select a CA-signed certificate → Apply"
+            ),
+            exploitability="Medium", impact_scope="Host", exposure="Adjacent",
+        ))
+
+    # ── CIS 1.1.8/1.1.9 – MFA for web console, VPN, and default admin ────────
+    mfa = cfg.mfa_settings
+    mfa_webconsole = _val(mfa, "WebAdminMFA", "WebConsoleMFA", "RequireMFAWebAdmin",
+                          "MFAWebAdmin", "WebAdmin") if mfa else ""
+    mfa_vpn = _val(mfa, "SSLVPNMFA", "VPNMFARequired", "RequireMFAVPN",
+                   "MFARemoteAccess", "SSLVPN") if mfa else ""
+    mfa_default_admin = _val(mfa, "DefaultAdminMFA", "AdminMFA", "MFADefaultAdmin",
+                              "DefaultAdmin") if mfa else ""
+
+    if mfa and _off(mfa_webconsole):
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Administration",
+            title="CIS 1.1.8 – MFA not required for web admin console access",
+            detail=(
+                "Multi-factor authentication is not enforced for web admin console access. "
+                "A stolen admin password gives full firewall control without any second factor."
+            ),
+            recommendation=(
+                "Navigate to Authentication → Multi-factor authentication → MFA Settings → "
+                "enable 'Require MFA for Web admin console'. "
+                "Aligns with CIS Sophos Benchmark §1.1.8 and CIS Control 6.5."
+            ),
+            references=[
+                "CIS Sophos Benchmark §1.1.8",
+                "CIS Control 6.5 – Require MFA for Administrative Access",
+                "MITRE ATT&CK T1078 – Valid Accounts",
+            ],
+            location=(
+                "Authentication → Multi-factor authentication → MFA Settings\n"
+                "→ Require MFA for 'Web admin console' → Enable → Apply"
+            ),
+            exploitability="High", impact_scope="Host", exposure="External",
+        ))
+
+    if mfa and _off(mfa_vpn):
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Administration",
+            title="CIS 1.1.8 – MFA not required for remote access VPN",
+            detail=(
+                "MFA is not enforced for SSL VPN or IPSec remote access. "
+                "A compromised VPN credential provides direct network access without a second factor."
+            ),
+            recommendation=(
+                "Enable MFA for SSL VPN and IPSec remote access under "
+                "Authentication → Multi-factor authentication → MFA Settings. "
+                "Aligns with CIS Sophos Benchmark §1.1.8 and CIS Control 6.4."
+            ),
+            references=[
+                "CIS Sophos Benchmark §1.1.8",
+                "CIS Control 6.4 – Require MFA for Remote Network Access",
+                "MITRE ATT&CK T1133 – External Remote Services",
+            ],
+            location=(
+                "Authentication → Multi-factor authentication → MFA Settings\n"
+                "→ Require MFA for 'SSL VPN remote access' and 'IPSec remote access' → Apply"
+            ),
+            exploitability="High", impact_scope="Network", exposure="External",
+        ))
+
+    if mfa and _off(mfa_default_admin):
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category="Administration",
+            title="CIS 1.1.9 – MFA not enabled for default admin account",
+            detail=(
+                "MFA is not enabled for the default administrator account specifically. "
+                "The benchmark requires explicit MFA for the built-in admin account under "
+                "System → Administration → Device Access."
+            ),
+            recommendation=(
+                "Navigate to System → Administration → Device Access → "
+                "Multi-factor Authentication for default admin → Turn ON. "
+                "Aligns with CIS Sophos Benchmark §1.1.9."
+            ),
+            references=[
+                "CIS Sophos Benchmark §1.1.9",
+                "CIS Control 6.5 – Require MFA for Administrative Access",
+                "MITRE ATT&CK T1078.001 – Default Accounts",
+            ],
+            location=(
+                "System → Administration → Device Access\n"
+                "→ Multi-factor Authentication for default admin → Turn ON"
+            ),
+            exploitability="High", impact_scope="Host", exposure="External",
+        ))
+
+    # ── CIS 1.1.10 – Hostname must be set ────────────────────────────────────
+    hostname = _val(admin, "Hostname", "DeviceName", "SystemName", "HostName")
+    if not hostname:
+        # Also check system_settings
+        hostname = _val(cfg.system_settings, "Hostname", "DeviceName", "SystemName", "HostName")
+    if not hostname or hostname.lower() in ("sophos", "sfos", "xg", "firewall", "default", ""):
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category="Administration",
+            title="CIS 1.1.10 – Hostname not configured or set to default",
+            detail=(
+                "The device hostname is not set or uses a generic default. "
+                "A meaningful hostname ensures logs, SNMP traps, and Sophos Central events "
+                "can be attributed to the correct device — critical in multi-firewall environments."
+            ),
+            recommendation=(
+                "Set a descriptive hostname (e.g. FW-HQ-EDGE01) under "
+                "Administration → Device Access → Hostname. "
+                "Aligns with CIS Sophos Benchmark §1.1.10."
+            ),
+            references=[
+                "CIS Sophos Benchmark §1.1.10",
+                "NIST SP 800-92 – Guide to Computer Security Log Management",
+            ],
+            location=(
+                "Administration → Device Access → Hostname\n"
+                "→ Set a descriptive hostname → Apply"
+            ),
+            exploitability="Low", impact_scope="Local", exposure="Internal",
+        ))
+
     if not cfg.admin_settings and not cfg.device_access:
         findings.append(Finding(
             severity=Severity.INFO,

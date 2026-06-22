@@ -540,4 +540,191 @@ def run(cfg) -> list[Finding]:
                 exploitability="High", impact_scope="Network", exposure="External",
             ))
 
+    # ── CIS 4.2 – Zero-day protection per outbound firewall rule ────────────
+    _INT_SRC = {"lan", "internal", "corp", "users", "office", "employees", "staff"}
+    _WAN_DST = {"wan", "internet", "untrust", "external", "outside", "public"}
+    outbound_no_zdp = [
+        r.get("name", f"Rule #{r.get('policy_index','?')}")
+        for r in cfg.firewall_rules
+        if r.get("action", "").lower() in ("accept", "allow")
+        and not r.get("status", "enable").lower() in ("disable", "disabled")
+        and any(z.strip().lower() in _INT_SRC or any(w in z.lower() for w in ("lan", "internal"))
+                for z in r.get("src_zones", []))
+        and any(z.strip().lower() in _WAN_DST or "wan" in z.lower()
+                for z in r.get("dst_zones", []))
+        and not r.get("zero_day", "").strip()
+    ]
+    if outbound_no_zdp:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category=_S,
+            title="CIS 4.2 – Outbound rules missing Zero-day protection (Sandstorm)",
+            detail=(
+                "Outbound allow rules from internal zones to WAN do not have "
+                "'Use Zero-day protection' enabled. Files downloaded via HTTP/HTTPS/FTP "
+                "will not be submitted to cloud sandboxing for unknown threat analysis."
+            ),
+            recommendation=(
+                "Edit each affected rule → Security features → Web filtering → "
+                "enable 'Use Zero-day protection'. Also navigate to "
+                "Monitor & Analyze → Zero-day protection → Protection Settings and "
+                "remove any file type exceptions. "
+                "Aligns with CIS Sophos Benchmark §4.2."
+            ),
+            references=[
+                "CIS Sophos Benchmark §4.2",
+                "CIS Control 10.1 – Deploy and Maintain Anti-Malware Software",
+                "MITRE ATT&CK T1027 – Obfuscated Files or Information",
+            ],
+            location=(
+                "Firewall → Rules and policies → Firewall rules\n"
+                "→ Edit outbound rule → Security features → enable 'Use Zero-day protection' → Save"
+            ),
+            affected=outbound_no_zdp[:20],
+            exploitability="Medium", impact_scope="Network", exposure="External",
+        ))
+
+    # ── CIS 4.4 – Synchronized Security Heartbeat per LAN/DMZ rule ──────────
+    lan_rules_no_hb = [
+        r.get("name", f"Rule #{r.get('policy_index','?')}")
+        for r in cfg.firewall_rules
+        if r.get("action", "").lower() in ("accept", "allow")
+        and not r.get("status", "enable").lower() in ("disable", "disabled")
+        and any(z.strip().lower() in _INT_SRC or any(w in z.lower() for w in ("lan", "internal"))
+                for z in r.get("src_zones", []))
+        and not r.get("heartbeat", "").strip()
+    ]
+    if lan_rules_no_hb:
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category=_S,
+            title="CIS 4.4 – LAN/DMZ rules missing Synchronized Security Heartbeat",
+            detail=(
+                "Internal network rules do not enforce Synchronized Security Heartbeat. "
+                "Without heartbeat enforcement, compromised endpoints with red/yellow health "
+                "status can still access network resources freely."
+            ),
+            recommendation=(
+                "Register Sophos Firewall with Sophos Central and enable Security Heartbeat. "
+                "Edit LAN/DMZ firewall rules → Configure Synchronized Security Heartbeat → "
+                "set 'Minimum source HB permitted' to Green or Yellow. "
+                "Aligns with CIS Sophos Benchmark §4.4."
+            ),
+            references=[
+                "CIS Sophos Benchmark §4.4",
+                "CIS Control 10.6 – Centrally Manage Anti-Malware Software",
+                "MITRE ATT&CK TA0008 – Lateral Movement",
+            ],
+            location=(
+                "Firewall → Rules and policies → Firewall rules\n"
+                "→ Edit rule → Configure Synchronized Security Heartbeat → "
+                "set Minimum source HB permitted to Green → Save"
+            ),
+            affected=lan_rules_no_hb[:20],
+            exploitability="Low", impact_scope="Network", exposure="Internal",
+        ))
+
+    # ── CIS 4.5 – MDR Threat Feeds ──────────────────────────────────────────
+    atr = cfg.active_threat_response
+    mdr_state = ""
+    ndr_state = ""
+    third_party_feeds = []
+    if atr:
+        mdr_state = _v(atr, "MDRThreatFeeds", "MDR", "MDREnabled", "Status")
+        ndr_state = _v(atr, "NDREssentials", "NDR", "NDREnabled", "NDRStatus")
+        third_party_feeds = atr.get("ThirdPartyFeeds", atr.get("ExternalFeeds", []))
+    else:
+        # Check system_settings for ATR-related keys
+        for d in (cfg.system_settings, cfg.av_settings):
+            if isinstance(d, dict):
+                mdr_state = mdr_state or _v(d, "MDRThreatFeeds", "MDR", "MDREnabled")
+                ndr_state = ndr_state or _v(d, "NDREssentials", "NDR", "NDREnabled")
+
+    if not mdr_state or _off(mdr_state):
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category=_S,
+            title="CIS 4.5 – MDR Threat Feeds not enabled",
+            detail=(
+                "MDR (Managed Detection and Response) Threat Feeds are not enabled. "
+                "MDR analysts can push real-time threat intelligence to the firewall from "
+                "Sophos Central to block known-malicious infrastructure immediately."
+            ),
+            recommendation=(
+                "Navigate to Protect → Active threat response → MDR threat feeds → "
+                "Enable and set action to 'Log and drop'. "
+                "Requires Sophos MDR subscription and Sophos Central registration. "
+                "Aligns with CIS Sophos Benchmark §4.5."
+            ),
+            references=[
+                "CIS Sophos Benchmark §4.5",
+                "CIS Control 8.2 – Collect Audit Logs",
+                "MITRE ATT&CK T1071 – Application Layer Protocol",
+            ],
+            location=(
+                "Protect → Active threat response → MDR threat feeds\n"
+                "→ Enable → Action: Log and drop → Apply"
+            ),
+            exploitability="Low", impact_scope="Network", exposure="External",
+        ))
+
+    # ── CIS 4.7 – NDR Essentials ─────────────────────────────────────────────
+    if not ndr_state or _off(ndr_state):
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category=_S,
+            title="CIS 4.7 – NDR Essentials not enabled",
+            detail=(
+                "NDR (Network Detection and Response) Essentials is not configured. "
+                "NDR uses machine learning to detect anomalous traffic patterns that may "
+                "indicate active adversaries — threats that signature-based detection misses."
+            ),
+            recommendation=(
+                "Navigate to Protect → Active threat response → NDR Essentials → "
+                "Turn ON and select monitored interfaces. Set Minimum threat score to High risk. "
+                "Aligns with CIS Sophos Benchmark §4.7."
+            ),
+            references=[
+                "CIS Sophos Benchmark §4.7",
+                "CIS Control 13.3 – Deploy a Network Intrusion Detection Solution",
+                "MITRE ATT&CK TA0011 – Command and Control",
+            ],
+            location=(
+                "Protect → Active threat response → NDR Essentials\n"
+                "→ Turn ON → select interfaces → Minimum threat score: High risk → Apply"
+            ),
+            exploitability="Low", impact_scope="Network", exposure="External",
+        ))
+
+    # ── CIS 4.6 – Third-party Threat Feeds ──────────────────────────────────
+    if not third_party_feeds:
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category=_S,
+            title="CIS 4.6 – Third-party threat feeds not configured",
+            detail=(
+                "No third-party threat feed integrations were detected in the Active Threat "
+                "Response configuration. Third-party feeds (e.g., FS-ISAC, commercial TI platforms) "
+                "augment Sophos native intelligence with sector-specific or custom IOCs that "
+                "SophosLabs may not yet include."
+            ),
+            recommendation=(
+                "Navigate to Protect → Active threat response → Third-party threat feeds → "
+                "Add feed URL(s) from a trusted threat intelligence provider. "
+                "Set the action to 'Log and drop'. "
+                "Aligns with CIS Sophos Benchmark §4.6."
+            ),
+            references=[
+                "CIS Sophos Benchmark §4.6",
+                "CIS Control 8.2 – Collect Audit Logs",
+                "CIS Control 8.5 – Collect Detailed Audit Logs",
+                "MITRE ATT&CK T1071 – Application Layer Protocol",
+            ],
+            location=(
+                "Protect → Active threat response → Third-party threat feeds\n"
+                "→ Add feed → URL → Action: Log and drop → Apply"
+            ),
+            exploitability="Low", impact_scope="Network", exposure="External",
+        ))
+
     return findings

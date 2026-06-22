@@ -77,25 +77,83 @@ CONTROLS: dict[str, dict] = {
              "ig": 2, "group": "Network Monitoring and Defense"},
 }
 
-# Regex to extract CIS Control IDs from reference strings.
-# Handles formats:
-#   "CIS Control 8.4 – …"
-#   "CIS Controls v8 – 13.4 …"
-#   "CIS Sophos Benchmark §3.1"  (ignored — not in CIS Controls v8)
+# Regex to extract CIS Controls v8 IDs from reference strings.
+# Handles:  "CIS Control 8.4 – …"  |  "CIS Controls v8 – 13.4 …"
 _CIS_RE = re.compile(
-    r'CIS\s+(?:Controls?\s+(?:v\d+\s*[-–]\s*)?|Benchmark\s*§)(\d+\.\d+)',
+    r'CIS\s+Controls?\s+(?:v\d+\s*[-–]\s*)?(\d+\.\d+)',
+    re.IGNORECASE,
+)
+
+# Sophos-specific benchmark section IDs (§1.1.1 through §5.12) mapped to CIS Controls v8
+_SOPHOS_TO_CIS: dict[str, list[str]] = {
+    "1.1.1": ["5.3", "6.5"],
+    "1.1.2": ["4.1"],
+    "1.1.3": ["8.4"],
+    "1.1.4": ["4.2"],
+    "1.1.5": ["5.2"],
+    "1.1.6": ["4.6", "12.3"],
+    "1.1.7": ["4.2"],
+    "1.1.8": ["6.4", "6.5"],
+    "1.1.9": ["6.5"],
+    "1.1.10": ["8.2"],
+    "1.2.1": ["3.10", "12.6"],
+    "1.2.2": ["13.1"],
+    "2.1":   ["8.2"],
+    "2.2":   ["12.3"],
+    "3.1":   [],
+    "3.2":   ["7.3", "7.4"],
+    "3.3":   ["7.3", "7.4"],
+    "3.4":   ["11.2", "11.3"],
+    "3.5":   ["7.4", "12.1"],
+    "3.6":   ["3.10"],
+    "3.7":   ["8.2", "8.5", "8.11"],
+    "4.1":   ["8.2", "8.5"],
+    "4.2":   ["10.1"],
+    "4.3":   ["9.7", "10.1"],
+    "4.4":   ["8.2", "10.6"],
+    "4.5":   ["8.2", "8.5"],
+    "4.6":   ["8.2", "8.5"],
+    "4.7":   ["13.3"],
+    "5.1":   ["8.7", "9.3"],
+    "5.2":   [],
+    "5.3":   [],
+    "5.4":   ["13.8"],
+    "5.5":   ["13.10"],
+    "5.6":   [],
+    "5.7":   [],
+    "5.8":   ["4.4", "4.5"],
+    "5.9":   ["3.10"],
+    "5.10":  ["4.4", "4.5"],
+    "5.11":  [],
+    "5.12":  [],
+}
+
+# Regex for Sophos benchmark section references: "CIS Sophos Benchmark §4.2"
+_SOPHOS_BENCH_RE = re.compile(
+    r'CIS\s+Sophos\s+Benchmark\s+§(\d+\.\d+)',
     re.IGNORECASE,
 )
 
 
 def extract_ids(references: list[str]) -> list[str]:
-    """Pull CIS Control IDs from a finding's references list."""
+    """Pull CIS Controls v8 IDs from a finding's references list.
+
+    Handles both direct CIS Control references and Sophos Benchmark section
+    references (resolved via _SOPHOS_TO_CIS mapping).
+    """
     ids: list[str] = []
     for ref in references:
+        # Direct CIS Controls v8 reference
         for m in _CIS_RE.finditer(ref):
             cid = m.group(1)
             if cid in CONTROLS and cid not in ids:
                 ids.append(cid)
+        # Sophos Benchmark section reference (e.g. "CIS Sophos Benchmark §4.2")
+        for m in _SOPHOS_BENCH_RE.finditer(ref):
+            section = m.group(1)
+            for cid in _SOPHOS_TO_CIS.get(section, []):
+                if cid in CONTROLS and cid not in ids:
+                    ids.append(cid)
     return ids
 
 

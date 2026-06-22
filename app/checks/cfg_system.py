@@ -219,8 +219,119 @@ def run(cfg) -> list[Finding]:
                     "MITRE ATT&CK T1036 – Masquerading",
                     "OWASP A06:2021 – Vulnerable and Outdated Components",
                     "CIS Control 7.3 – Perform Automated Patch Management",
+                    "CIS Sophos Benchmark §3.2",
                 ],
                 location="System → Updates → Enable automatic updates → set frequency to Daily → Apply",
+                exploitability="Low", impact_scope="Network", exposure="External",
+            ))
+        else:
+            # CIS 3.2: interval should be every 15 minutes
+            interval = _v(upd, "Interval", "UpdateInterval", "Frequency", "CheckInterval")
+            try:
+                interval_min = int(interval)
+                if interval_min > 15:
+                    findings.append(Finding(
+                        severity=Severity.LOW,
+                        category=_S,
+                        title=f"CIS 3.2 – Pattern update interval is {interval_min} min (should be ≤15 min)",
+                        detail=(
+                            f"Pattern updates are set to every {interval_min} minutes. "
+                            "The CIS Sophos Benchmark requires updates every 15 minutes to "
+                            "minimise the window of vulnerability to newly released threats."
+                        ),
+                        recommendation=(
+                            "Set the pattern update interval to 'Every 15 minutes' under "
+                            "System → Backup & Firmware → Pattern Updates. "
+                            "Aligns with CIS Sophos Benchmark §3.2."
+                        ),
+                        references=[
+                            "CIS Sophos Benchmark §3.2",
+                            "CIS Control 7.3 – Perform Automated Patch Management",
+                        ],
+                        location=(
+                            "System → Backup & Firmware → Pattern Updates\n"
+                            "→ Interval → Every 15 minutes → Apply"
+                        ),
+                        exploitability="Low", impact_scope="Network", exposure="External",
+                    ))
+            except (ValueError, TypeError):
+                pass
+
+    # ── CIS 3.3 – Hotfix auto-install ────────────────────────────────────────
+    # Hotfix status is typically only visible via CLI; check raw config for hints
+    hotfix_el = None
+    for key in ("Hotfix", "HotfixSettings", "AutoHotfix", "HotfixInstall"):
+        if key in cfg.raw_sections:
+            hotfix_el = cfg.system_settings.get(key) or cfg.update_settings.get(key)
+            if hotfix_el:
+                break
+    if not hotfix_el:
+        hotfix_val = _v(cfg.system_settings, "Hotfix", "HotfixEnabled", "AllowHotfix")
+        if not hotfix_val:
+            hotfix_val = _v(cfg.update_settings, "Hotfix", "HotfixEnabled", "AllowHotfix")
+        if hotfix_val and _off(hotfix_val):
+            findings.append(Finding(
+                severity=Severity.MEDIUM,
+                category=_S,
+                title="CIS 3.3 – Hotfix auto-installation is disabled",
+                detail=(
+                    "Automatic hotfix installation is disabled. Security hotfixes address "
+                    "critical vulnerabilities and should be applied automatically to minimise "
+                    "exposure time to known firewall vulnerabilities."
+                ),
+                recommendation=(
+                    "Enable automatic hotfix installation via CLI: "
+                    "Select Option 4 > system hotfix show, then enable. "
+                    "Aligns with CIS Sophos Benchmark §3.3."
+                ),
+                references=[
+                    "CIS Sophos Benchmark §3.3",
+                    "CIS Control 7.3 – Perform Automated Patch Management",
+                    "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                ],
+                location=(
+                    "Sophos CLI: Select Option 4 > Advanced Shell\n"
+                    "> system hotfix enable"
+                ),
+                exploitability="Low", impact_scope="Network", exposure="External",
+            ))
+
+    # ── CIS 3.5 – No expired subscriptions ───────────────────────────────────
+    lic = cfg.licensing_settings
+    if lic:
+        expired: list[str] = []
+        for key, val in lic.items() if isinstance(lic, dict) else []:
+            if isinstance(val, str) and val.lower() in ("expired", "inactive", "deactivated"):
+                expired.append(key)
+            elif isinstance(val, dict):
+                status_val = _v(val, "Status", "State", "LicenseStatus")
+                if status_val.lower() in ("expired", "inactive", "deactivated"):
+                    expired.append(key)
+        if expired:
+            findings.append(Finding(
+                severity=Severity.HIGH,
+                category=_S,
+                title=f"CIS 3.5 – Expired subscription licenses detected: {', '.join(expired[:5])}",
+                detail=(
+                    "One or more subscription licenses are expired. Expired subscriptions stop "
+                    "receiving security signature updates, making the corresponding protection "
+                    "features ineffective against new threats."
+                ),
+                recommendation=(
+                    "Renew all expired subscriptions immediately under "
+                    "System → Administration → Licensing → Synchronize. "
+                    "Aligns with CIS Sophos Benchmark §3.5."
+                ),
+                references=[
+                    "CIS Sophos Benchmark §3.5",
+                    "CIS Control 12.1 – Ensure Network Infrastructure is Up-to-Date",
+                    "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                ],
+                location=(
+                    "System → Administration → Licensing\n"
+                    "→ Synchronize → contact Sophos to renew expired modules"
+                ),
+                affected=expired,
                 exploitability="Low", impact_scope="Network", exposure="External",
             ))
 
@@ -508,35 +619,66 @@ def run(cfg) -> list[Finding]:
                 exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
 
-    # ── HA ────────────────────────────────────────────────────────────────────
+    # ── CIS 3.1 / HA ─────────────────────────────────────────────────────────
     ha = cfg.ha_settings
     if ha:
-        mode = _v(ha, "Mode", "HAMode", "State")
+        mode = _v(ha, "Mode", "HAMode", "State", "Status")
         if mode.lower() in ("standalone", "disable", "disabled", "off", ""):
             findings.append(Finding(
                 severity=Severity.INFO,
                 category=_S,
-                title="High Availability not configured",
+                title="CIS 3.1 – High Availability not configured (standalone mode)",
                 detail="The firewall is running in standalone mode. A hardware failure will cause a network outage.",
-                recommendation="Consider HA Active-Passive or Active-Active deployment for critical environments.",
+                recommendation=(
+                    "Consider HA Active-Passive or Active-Active deployment for critical environments. "
+                    "Aligns with CIS Sophos Benchmark §3.1."
+                ),
+                references=["CIS Sophos Benchmark §3.1"],
                 location="System → High availability → Configure HA peer → Apply",
                 exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
         else:
+            # Check for Fully Synchronized state (CIS 3.1 specifically requires this)
+            ha_status = _v(ha, "HAStatus", "PeerStatus", "SyncStatus", "ClusterStatus")
+            if ha_status and ha_status.lower() in ("faulty", "standalone", "notsynced",
+                                                    "not_synced", "unsynchronized"):
+                findings.append(Finding(
+                    severity=Severity.HIGH,
+                    category=_S,
+                    title="CIS 3.1 – HA peer is not in 'Fully Synchronized' state",
+                    detail=(
+                        f"HA status is '{ha_status}'. The CIS benchmark requires the HA peer "
+                        "to show 'Established[Active-Passive]' or 'Established[Active-Active]' "
+                        "with both Local and Peer devices synchronized. A faulty or standalone "
+                        "auxiliary node means failover protection is not available."
+                    ),
+                    recommendation=(
+                        "Navigate to Configure → System Services → High Availability and "
+                        "resolve the sync issue. Re-configure HA if the auxiliary is showing Faulty. "
+                        "Aligns with CIS Sophos Benchmark §3.1."
+                    ),
+                    references=[
+                        "CIS Sophos Benchmark §3.1",
+                        "OWASP A05:2021 – Security Misconfiguration",
+                    ],
+                    location="Configure → System Services → High Availability → High Availability Status",
+                    exploitability="Low", impact_scope="Local", exposure="Internal",
+                ))
             sync = _v(ha, "ConfigSync", "SynchroniseConfig", "Sync")
             if _off(sync):
                 findings.append(Finding(
                     severity=Severity.MEDIUM,
                     category=_S,
-                    title="HA configuration synchronisation disabled",
+                    title="CIS 3.1 – HA configuration synchronisation disabled",
                     detail="HA peers with out-of-sync configs can apply different policies after failover.",
                     recommendation=(
                         "Enable configuration synchronisation between HA peers. "
                         "Desynchronised HA nodes may have weaker policies on the standby unit, "
                         "enabling MITRE ATT&CK T1562.004 (Disable or Modify System Firewall) by circumstance. "
-                        "Aligns with OWASP A05:2021 – Security Misconfiguration."
+                        "Aligns with CIS Sophos Benchmark §3.1 and OWASP A05:2021."
                     ),
                     references=[
+                        "CIS Sophos Benchmark §3.1",
                         "MITRE ATT&CK T1562.004 – Impair Defenses: Disable or Modify System Firewall",
                         "OWASP A05:2021 – Security Misconfiguration",
                     ],

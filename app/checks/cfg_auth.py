@@ -293,6 +293,99 @@ def run(cfg) -> list[Finding]:
                         exploitability="High", impact_scope="Network", exposure="Adjacent",
                     ))
 
+    # ── CIS 2.1 – Firewall rules identify users before authorizing access ────
+    # Identify LAN/DMZ-sourced accept rules missing user identity matching
+    rules_no_user_id = [
+        r.get("name", f"Rule #{r.get('policy_index','?')}")
+        for r in cfg.firewall_rules
+        if r.get("action", "").lower() in ("accept", "allow")
+        and any(z.strip().lower() in ("lan", "internal", "dmz", "users", "corp", "office")
+                or "lan" in z.lower() or "internal" in z.lower()
+                for z in r.get("src_zones", []))
+        and not r.get("user_identity", "").strip()
+    ]
+    if rules_no_user_id:
+        findings.append(Finding(
+            severity=Severity.LOW,
+            category=_S,
+            title="CIS 2.1 – Firewall rules missing user identity matching",
+            detail=(
+                "LAN/DMZ-sourced accept rules do not have 'Match known users' configured. "
+                "The benchmark requires that users are identified and authenticated before "
+                "network resources are authorised, enabling user-based logging and incident response."
+            ),
+            recommendation=(
+                "Edit each affected rule → enable 'Match known users' and specify authorised "
+                "user groups. Configure an authentication server under "
+                "Configure → Authentication → Services. "
+                "Aligns with CIS Sophos Benchmark §2.1."
+            ),
+            references=[
+                "CIS Sophos Benchmark §2.1",
+                "CIS Control 8.2 – Collect Audit Logs",
+                "MITRE ATT&CK T1078 – Valid Accounts",
+            ],
+            location=(
+                "Firewall → Rules and policies → Firewall rules\n"
+                "→ Edit rule → Identity → enable 'Match known users' → assign user groups → Save"
+            ),
+            affected=rules_no_user_id[:20],
+            exploitability="Low", impact_scope="Network", exposure="Internal",
+        ))
+
+    # ── CIS 2.2 – Encrypted LDAP/AD connection ───────────────────────────────
+    # (already implemented above; also add validation for 'Validate server certificate')
+    for srv in cfg.auth_servers:
+        stype = srv.get("_type", "")
+        name  = _v(srv, "Name", "ServerName")
+        if stype in ("LDAPServer", "ActiveDirectory"):
+            conn_sec = _v(srv, "ConnectionSecurity", "Encryption", "TLS", "SecureTransport",
+                          "SSL", "LDAPS", "Protocol")
+            validate_cert = _v(srv, "ValidateCertificate", "ValidateServerCert",
+                                "CertificateValidation")
+            if conn_sec.lower() in ("none", "plaintext", "unencrypted", ""):
+                findings.append(Finding(
+                    severity=Severity.HIGH,
+                    category=_S,
+                    title=f"CIS 2.2 – LDAP/AD server '{name}' uses no connection security",
+                    detail=(
+                        f"LDAP/AD server '{name}' does not use SSL/TLS or STARTTLS. "
+                        "Directory credentials and queries are transmitted in cleartext."
+                    ),
+                    recommendation=(
+                        "Set connection security to SSL/TLS (LDAPS) or STARTTLS and "
+                        "enable 'Validate server certificate'. "
+                        "Aligns with CIS Sophos Benchmark §2.2."
+                    ),
+                    references=[
+                        "CIS Sophos Benchmark §2.2",
+                        "CIS Control 12.3 – Securely Manage Network Infrastructure",
+                        "MITRE ATT&CK T1040 – Network Sniffing",
+                    ],
+                    location=f"Authentication → Servers → Edit '{name}' → SSL/TLS → Apply",
+                    exploitability="High", impact_scope="Network", exposure="Adjacent",
+                ))
+            elif _off(validate_cert):
+                findings.append(Finding(
+                    severity=Severity.MEDIUM,
+                    category=_S,
+                    title=f"CIS 2.2 – LDAP/AD server '{name}' does not validate server certificate",
+                    detail=(
+                        f"Encrypted LDAP is configured for '{name}' but certificate validation is off. "
+                        "Without validation, the connection is vulnerable to MITM even with TLS."
+                    ),
+                    recommendation=(
+                        "Enable 'Validate server certificate' for LDAP/AD connections. "
+                        "Aligns with CIS Sophos Benchmark §2.2."
+                    ),
+                    references=[
+                        "CIS Sophos Benchmark §2.2",
+                        "MITRE ATT&CK T1557 – Adversary-in-the-Middle",
+                    ],
+                    location=f"Authentication → Servers → Edit '{name}' → Validate server certificate → Apply",
+                    exploitability="Medium", impact_scope="Network", exposure="Adjacent",
+                ))
+
     # ── Local Admin Accounts ──────────────────────────────────────────────────
     admin_users = [u for u in cfg.local_users if "admin" in u.get("role", "").lower()]
     default_admin = [u for u in cfg.local_users if u.get("name", "").lower() == "admin"]

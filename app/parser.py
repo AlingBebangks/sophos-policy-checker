@@ -47,6 +47,12 @@ class SophosConfig:
     email_settings: dict        = field(default_factory=dict)
     # Central / cloud management
     central_mgmt:   dict        = field(default_factory=dict)
+    # Active Threat Response (MDR/NDR/third-party feeds)
+    active_threat_response: dict = field(default_factory=dict)
+    # Protection profiles
+    wireless_settings: list[dict] = field(default_factory=list)
+    # Licensing / subscriptions
+    licensing_settings: dict    = field(default_factory=dict)
     # Misc
     services:       list[dict]  = field(default_factory=list)
     service_defs:   dict        = field(default_factory=dict)  # name -> {ports, protocol}
@@ -127,6 +133,18 @@ def parse(xml_bytes: bytes) -> SophosConfig:
             "web_filter":   _text(rule, "WebFilter") or _text(rule, "WebPolicy"),
             "app_control":  _text(rule, "ApplicationControl"),
             "av_profile":   _text(rule, "AVPolicy") or _text(rule, "AntiVirusPolicy"),
+            "zero_day":     (
+                _text(rule, "UseZeroDayProtection") or _text(rule, "ZeroDayProtection") or
+                _text(rule, "Sandstorm") or _text(rule, "SandstormEnabled") or ""
+            ),
+            "heartbeat":    (
+                _text(rule, "HeartbeatEnabled") or _text(rule, "SynchronizedSecurity") or
+                _text(rule, "MinSourceHBPermitted") or ""
+            ),
+            "user_identity": (
+                _text(rule, "MatchUsers") or _text(rule, "MatchKnownUsers") or
+                _text(rule, "UserIdentity") or _text(rule, "IdentityBased") or ""
+            ),
         })
 
     # ── NAT Rules ─────────────────────────────────────────────────────────────
@@ -300,6 +318,23 @@ def parse(xml_bytes: bytes) -> SophosConfig:
                    ".//CloudManagement", ".//CentrallyManaged")
     if cm_el is not None:
         cfg.central_mgmt = _el_to_dict(cm_el)
+
+    atr_el = _first(root, ".//ActiveThreatResponse", ".//ThreatFeeds", ".//MDRThreatFeeds",
+                    ".//NDREssentials", ".//ThirdPartyFeeds")
+    if atr_el is not None:
+        cfg.active_threat_response = _el_to_dict(atr_el)
+
+    for wn in root.iter("WirelessNetwork"):
+        cfg.wireless_settings.append(_el_to_dict(wn))
+    if not cfg.wireless_settings:
+        wl_el = _first(root, ".//Wireless", ".//WirelessSettings", ".//APSettings")
+        if wl_el is not None:
+            cfg.wireless_settings = [_el_to_dict(wl_el)]
+
+    lic_el = _first(root, ".//Licensing", ".//LicenseSettings", ".//Subscriptions",
+                    ".//ModuleSubscriptions")
+    if lic_el is not None:
+        cfg.licensing_settings = _el_to_dict(lic_el)
 
     for svc in root.iter("Services"):
         cfg.services.append(_el_to_dict(svc))

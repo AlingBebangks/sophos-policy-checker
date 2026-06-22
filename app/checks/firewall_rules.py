@@ -778,6 +778,147 @@ def run(cfg) -> list[Finding]:
             detectability=_detectability(no_ips_rules),
         ))
 
+    # ── CIS 5.3 – Application filter blocking high-risk apps (Level 4/5) ────
+    outbound_no_appctrl = [
+        _label(r)
+        for r in rules
+        if r.get("action", "").lower() in ("accept", "allow")
+        and not r.get("status", "enable").lower() in ("disable", "disabled")
+        and any(z.strip().lower() in _WAN_ZONES or any(w in z.lower() for w in _WAN_ZONES)
+                for z in r.get("dst_zones", []))
+        and not r.get("app_control", "").strip()
+    ]
+    if outbound_no_appctrl:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category="Firewall Rules",
+            title="CIS 5.3 – Outbound rules missing application control (high-risk app blocking)",
+            detail=(
+                "Outbound rules to the WAN zone have no application control policy assigned. "
+                "High-risk applications (P2P, anonymisers, Level 4/5 risk) can operate freely, "
+                "enabling C2 channels and data exfiltration over non-standard ports."
+            ),
+            recommendation=(
+                "Assign an application filter policy to outbound rules that blocks "
+                "'high risk (Risk Level 4 and 5)' applications. "
+                "Navigate to Rules and policies → Firewall rules → edit each outbound rule → "
+                "Identify and control applications → Block high risk apps. "
+                "Aligns with CIS Sophos Benchmark §5.3."
+            ),
+            references=[
+                "CIS Sophos Benchmark §5.3",
+                "MITRE ATT&CK T1048 – Exfiltration Over Alternative Protocol",
+                "MITRE ATT&CK T1071 – Application Layer Protocol",
+            ],
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Edit outbound rule → Identify and control applications → Block high risk → Save"
+            ),
+            affected=outbound_no_appctrl[:20],
+            exploitability="Medium", impact_scope="Network", exposure="External",
+        ))
+
+    # ── CIS 5.8 – SMB/RDP/unencrypted protocols not accessible from WAN ─────
+    _RISKY_WAN_PORTS = {
+        "445": "SMB", "137": "NetBIOS-NS", "138": "NetBIOS-DGM", "139": "NetBIOS-SSN",
+        "3389": "RDP", "21": "FTP", "23": "Telnet", "79": "Finger",
+        "113": "Ident", "135": "MSRPC", "513": "Rlogin",
+        "389": "LDAP", "1433": "MSSQL", "5800": "VNC-HTTP", "5900": "VNC",
+    }
+    wan_risky_svc_rules: list[str] = []
+    for rule in rules:
+        if rule.get("status", "enable").lower() in ("disable", "disabled"):
+            continue
+        if rule.get("action", "").lower() not in ("accept", "allow"):
+            continue
+        src_z = rule.get("src_zones", [])
+        if not any(z.strip().lower() in _WAN_ZONES for z in src_z):
+            continue
+        # Check service objects for risky ports
+        for svc_name in rule.get("services", []):
+            svc_info = cfg.service_defs.get(svc_name, {})
+            dst_port = svc_info.get("dst_port", "")
+            for port, proto in _RISKY_WAN_PORTS.items():
+                if port in (dst_port or "").split(",") or port in (dst_port or "").split("-"):
+                    wan_risky_svc_rules.append(f"{_label(rule)} — {proto} ({port})")
+                    break
+            # Also check if service name contains protocol name
+            if svc_name.upper() in ("RDP", "SMB", "NETBIOS", "TELNET", "FTP", "VNC",
+                                     "MSSQL", "LDAP"):
+                wan_risky_svc_rules.append(f"{_label(rule)} — {svc_name}")
+
+    if wan_risky_svc_rules:
+        findings.append(Finding(
+            severity=Severity.CRITICAL,
+            category="Firewall Rules",
+            title="CIS 5.8 – WAN-to-internal rules expose SMB/RDP/unencrypted protocols",
+            detail=(
+                "Firewall rules allow WAN-sourced traffic to reach internal hosts on "
+                "high-risk ports: SMB (445), RDP (3389), NetBIOS (137-139), FTP (21), "
+                "Telnet (23), LDAP (389), MSSQL (1433), or VNC (5800/5900). "
+                "These ports are primary targets for ransomware, worms, and brute-force attacks "
+                "(e.g. BlueKeep CVE-2019-0708, WannaCry, EternalBlue)."
+            ),
+            recommendation=(
+                "Disable or restrict WAN access to these services. "
+                "Use VPN for any required remote access — never expose RDP/SMB directly to the internet. "
+                "Aligns with CIS Sophos Benchmark §5.8."
+            ),
+            references=[
+                "CIS Sophos Benchmark §5.8",
+                "CVE-2019-0708 – BlueKeep (RDP)",
+                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                "MITRE ATT&CK T1021.001 – Remote Services: RDP",
+                "CIS Control 4.4 – Implement and Manage a Firewall on Servers",
+            ],
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Remove or restrict WAN rules that expose risky ports → Save"
+            ),
+            affected=wan_risky_svc_rules[:20],
+            exploitability="High", impact_scope="Network", exposure="External",
+        ))
+
+    # ── CIS 5.10 – No ANY/ANY/ANY from WAN to LAN/DMZ ────────────────────────
+    cis_510_rules = [
+        _label(r)
+        for r in rules
+        if r.get("action", "").lower() in ("accept", "allow")
+        and not r.get("status", "enable").lower() in ("disable", "disabled")
+        and any(z.strip().lower() in _WAN_ZONES for z in r.get("src_zones", []))
+        and _is_any(r.get("services", []))
+        and _is_any(r.get("dst_networks", []))
+        and any(z.strip().lower() in (_DMZ_ZONES | _INT_ZONES)
+                for z in r.get("dst_zones", []))
+    ]
+    if cis_510_rules:
+        findings.append(Finding(
+            severity=Severity.CRITICAL,
+            category="Firewall Rules",
+            title="CIS 5.10 – WAN-to-LAN/DMZ rules with ANY source, ANY service, ANY destination",
+            detail=(
+                "Firewall rules from the WAN zone to LAN or DMZ with no service restriction "
+                "and no destination network restriction expose the entire internal network "
+                "to any internet host on any port."
+            ),
+            recommendation=(
+                "Remove or replace these rules with specific source network, service, and "
+                "destination host definitions. No valid use case requires any-any-any from WAN. "
+                "Aligns with CIS Sophos Benchmark §5.10."
+            ),
+            references=[
+                "CIS Sophos Benchmark §5.10",
+                "MITRE ATT&CK T1190 – Exploit Public-Facing Application",
+                "CIS Control 4.4 – Implement and Manage a Firewall on Servers",
+            ],
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Remove any-any-any WAN accept rules → replace with specific definitions → Save"
+            ),
+            affected=cis_510_rules,
+            exploitability="High", impact_scope="Network", exposure="External",
+        ))
+
     # ── Shadowed rules ────────────────────────────────────────────────────────
     if shadowed_rules:
         shadowed_only = [r for r, _ in shadowed_rules]
