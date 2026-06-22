@@ -30,6 +30,11 @@ def _is_any(values: list[str]) -> bool:
     return not values or any(v.strip().lower() in _ANY for v in values)
 
 
+def _zones_explicit(zones: list[str]) -> bool:
+    """True when at least one zone is named and not a wildcard — zones are intentionally scoped."""
+    return bool(zones) and not any(z.strip().lower() in _ANY for z in zones)
+
+
 def _zone_tier(zones: list[str]) -> str:
     """Classify a zone list into WAN / DMZ / Internal / Unknown."""
     names = {z.strip().lower() for z in zones}
@@ -73,12 +78,16 @@ def run(cfg) -> list[Finding]:
         return findings
 
     # Any-to-any rules split by zone combination (each has a different risk profile)
+    # True any-to-any: BOTH zones AND networks are unspecified (or "Any")
     aa_wan_to_any:  list[dict] = []   # WAN → * : internet can reach everything — Critical
     aa_dmz_to_int:  list[dict] = []   # DMZ → Internal : compromised server pivots in — Critical
     aa_int_to_wan:  list[dict] = []   # Internal → WAN : unrestricted exfil path — High
     aa_int_to_dmz:  list[dict] = []   # Internal → DMZ : flat access to all servers — High
     aa_int_to_int:  list[dict] = []   # Internal → Internal : lateral movement — Medium
     aa_other:       list[dict] = []   # Unknown zones — Medium fallback
+    # Zone-scoped broad network: zones ARE defined but src/dst networks are Any.
+    # The zone pair constrains direction, but all hosts within each zone are reachable.
+    broad_net_rules: list[dict] = []  # Medium — no host segmentation within zone pair
     wan_any_src_rules: list[dict] = []
     no_log_rules: list[dict] = []
     no_log_wan_rules: list[dict] = []   # subset: WAN-facing rules with no logging
@@ -130,7 +139,12 @@ def run(cfg) -> list[Finding]:
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
             src_tier = _zone_tier(src_zones)
             dst_tier = _zone_tier(dst_zones)
-            if src_tier == "WAN":
+            zones_defined = _zones_explicit(src_zones) and _zones_explicit(dst_zones)
+            if zones_defined:
+                # Zones constrain the traffic direction — this is NOT any-to-any.
+                # It is an overly broad network scope within a known zone pair.
+                broad_net_rules.append(rule)
+            elif src_tier == "WAN":
                 aa_wan_to_any.append(rule)
             elif src_tier == "DMZ" and dst_tier == "Internal":
                 aa_dmz_to_int.append(rule)
@@ -395,6 +409,42 @@ def run(cfg) -> list[Finding]:
             affected_rules=aa_other,
             exploitability="Medium", impact_scope="Network", exposure="Internal",
             detectability=_detectability(aa_other),
+        ))
+
+    if broad_net_rules:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category="Firewall Rules",
+            title="Accept rules with no host segmentation — all hosts within zone pair are reachable",
+            detail=(
+                "These rules specify source and destination zones explicitly (traffic direction is "
+                "intentional), but the source and destination network objects are set to 'Any'. "
+                "Every host within the source zone can reach every host within the destination zone. "
+                "While the zone pair constrains the traffic direction, there is no host-level "
+                "access control — a single compromised host in the source zone can freely contact "
+                "any host in the destination zone without restriction."
+            ),
+            recommendation=(
+                "Replace the 'Any' network objects with explicit host groups, subnets, or named "
+                "network objects that represent only the legitimate communicating endpoints. "
+                "Apply the principle of least privilege at the host/subnet level, not just the zone level. "
+                "Aligns with CIS Control 12.2 – Establish and Maintain a Secure Network Architecture "
+                "and NIST SP 800-41 §4.3 – Inbound/Outbound Traffic Filtering."
+            ),
+            references=[
+                "CIS Control 12.2 – Establish and Maintain a Secure Network Architecture",
+                "NIST SP 800-41 §4.3 – Filtering Inbound and Outbound Traffic",
+                "OWASP A05:2021 – Security Misconfiguration",
+            ],
+            location=(
+                f"{_FW_NAV}\n"
+                "→ Edit each rule → Source networks / Destination networks "
+                "→ Replace 'Any' with specific host/subnet objects → Save"
+            ),
+            affected=[_label(r) for r in broad_net_rules],
+            affected_rules=broad_net_rules,
+            exploitability="Medium", impact_scope="Network", exposure="Internal",
+            detectability=_detectability(broad_net_rules),
         ))
 
     if wan_any_src_rules:
