@@ -265,6 +265,78 @@ def run(cfg) -> list[Finding]:
                 location="System → Backup & firmware → Backup → Enable scheduled backup → Apply",
                 exploitability="Low", impact_scope="Local", exposure="Internal",
             ))
+        # Mode: should be Mail (email) or FTP — not Manual-only
+        mode = _v(backup, "BackupMode", "Mode", "BackupType", "DeliveryMethod")
+        if mode and mode.lower() in ("manual", "local", ""):
+            findings.append(Finding(
+                severity=Severity.LOW,
+                category=_S,
+                title="Backup delivery mode is manual/local only",
+                detail=(
+                    "Backup mode is set to manual or local storage only. "
+                    "Manual backups are frequently forgotten, and local-only backups are lost if the "
+                    "device fails. The Sophos official audit baseline expects backup mode 'Mail' so a "
+                    "copy is sent off-device automatically."
+                ),
+                recommendation=(
+                    "Set backup mode to 'Mail' (email) or 'FTP' so backups are sent off-device "
+                    "automatically. Configure the destination address/server and a backup schedule. "
+                    "Aligns with CIS Control 11.2 – Perform Automated Backups."
+                ),
+                references=[
+                    "CIS Control 11.2 – Perform Automated Backups",
+                    "MITRE ATT&CK T1486 – Data Encrypted for Impact",
+                ],
+                location=(
+                    "System → Backup & firmware → Backup\n"
+                    "→ Backup mode → select 'Mail' or 'FTP' → configure destination → Apply"
+                ),
+                exploitability="Low", impact_scope="Local", exposure="Internal",
+            ))
+
+        # Recipient / destination must be set
+        recipient = _v(backup, "EmailAddress", "Recipient", "FTPServer", "BackupEmail", "Destination")
+        if not recipient:
+            findings.append(Finding(
+                severity=Severity.LOW,
+                category=_S,
+                title="Backup destination address/server not configured",
+                detail=(
+                    "A backup schedule exists but no email address or FTP server is configured as the "
+                    "destination. Backups will not be sent off-device, making them equivalent to no backup."
+                ),
+                recommendation=(
+                    "Set a backup email recipient or FTP server address. "
+                    "Aligns with CIS Control 11.2 – Perform Automated Backups."
+                ),
+                references=["CIS Control 11.2 – Perform Automated Backups"],
+                location=(
+                    "System → Backup & firmware → Backup\n"
+                    "→ Enter email address or FTP server → Apply"
+                ),
+                exploitability="Low", impact_scope="Local", exposure="Internal",
+            ))
+
+        # Frequency
+        freq = _v(backup, "BackupFrequency", "Frequency", "Schedule", "BackupSchedule")
+        if freq and freq.lower() in ("never", "manual", "none", "disable", "disabled"):
+            findings.append(Finding(
+                severity=Severity.MEDIUM,
+                category=_S,
+                title="Backup frequency is set to never / disabled",
+                detail="A backup destination is configured but the frequency is set so backups never run automatically.",
+                recommendation=(
+                    "Set backup frequency to Weekly at minimum; Daily is preferred for production firewalls. "
+                    "Aligns with CIS Control 11.2 – Perform Automated Backups."
+                ),
+                references=["CIS Control 11.2 – Perform Automated Backups"],
+                location=(
+                    "System → Backup & firmware → Backup\n"
+                    "→ Frequency → select Weekly or Daily → Apply"
+                ),
+                exploitability="Low", impact_scope="Local", exposure="Internal",
+            ))
+
         encrypt = _v(backup, "EncryptionPassword", "Encrypt", "Encryption")
         if not encrypt or _off(encrypt):
             findings.append(Finding(
@@ -309,6 +381,64 @@ def run(cfg) -> list[Finding]:
             location="System → Administration → Notification settings → Configure email alerts → Apply",
             exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
+    else:
+        # ── Notification event toggle audit (mirrors Sophos official audit tool) ──
+        # These are the critical alert categories that should have email enabled.
+        _CRITICAL_ALERTS = [
+            ("FirmwareReadyEmail",       "Firmware update ready"),
+            ("FirmwareInstalledEmail",   "Firmware installed"),
+            ("FirmwareInstalledFailedEmail", "Firmware installation failed"),
+            ("IPSSigFailEmail",          "IPS signature update failure"),
+            ("AVFailEmail",              "Antivirus engine failure"),
+            ("RedDownEmail",             "RED tunnel down"),
+            ("ApplianceUnpluggedEmail",  "Appliance unplugged / power loss"),
+            ("ConfDiskExdEmail",         "Config disk space exceeded"),
+            ("SigDiskExdEmail",          "Signature disk space exceeded"),
+        ]
+        # Retrieve the notification list — some firmware nests it under NotificationList
+        notif_list = cfg.notification_settings
+        if isinstance(notif_list, dict):
+            notif_list = notif_list.get("NotificationList", notif_list)
+
+        disabled_alerts: list[str] = []
+        if isinstance(notif_list, dict):
+            for key, label in _CRITICAL_ALERTS:
+                val = str(notif_list.get(key, "")).lower()
+                if val in ("disable", "disabled", "0", "false", "off", ""):
+                    disabled_alerts.append(label)
+
+        if disabled_alerts:
+            findings.append(Finding(
+                severity=Severity.LOW,
+                category=_S,
+                title="Critical notification alerts are not enabled",
+                detail=(
+                    "The following critical event notifications do not have email alerting enabled: "
+                    + ", ".join(disabled_alerts) + ". "
+                    "Without these alerts, firmware failures, IPS/AV update failures, and connectivity "
+                    "losses go unnoticed until the next manual check."
+                ),
+                recommendation=(
+                    "Enable email notifications for all critical system events under "
+                    "System → Administration → Notification list. "
+                    "At minimum: firmware events, IPS/AV signature failures, RED tunnel status, "
+                    "appliance power/connectivity, and disk space alerts. "
+                    "Aligns with OWASP A09:2021 – Security Logging and Monitoring Failures and "
+                    "CIS Control 8.11 – Conduct Audit Log Reviews."
+                ),
+                references=[
+                    "OWASP A09:2021 – Security Logging and Monitoring Failures",
+                    "CIS Control 8.11 – Conduct Audit Log Reviews",
+                    "MITRE ATT&CK T1562 – Impair Defenses",
+                ],
+                location=(
+                    "System → Administration → Notification list\n"
+                    "→ Enable email for: " + ", ".join(disabled_alerts[:4])
+                    + (" and more" if len(disabled_alerts) > 4 else "") + " → Apply"
+                ),
+                affected=disabled_alerts,
+                exploitability="Low", impact_scope="Local", exposure="Internal",
+            ))
 
     # ── Sophos Central / Central Management ──────────────────────────────────
     cm = cfg.central_mgmt

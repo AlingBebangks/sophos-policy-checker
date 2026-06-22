@@ -92,6 +92,109 @@ def run(cfg) -> list[Finding]:
                 exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
+    # ── Advanced Threat Protection (ATP / Sophos X-Ops threat feeds) ─────────
+    atp_el = None
+    for key in ("ThreatProtection", "ActiveThreatResponse", "ATP", "XOpsThreats",
+                "AdvancedThreatProtection", "ThreatFeed"):
+        atp_el = cfg.raw_sections.get(key) and cfg.system_settings.get(key)
+        if not atp_el:
+            # also check av_settings and sandbox_settings where some firmware stores ATP
+            atp_el = cfg.av_settings.get(key) or cfg.sandbox_settings.get(key)
+        if atp_el:
+            break
+    # Fallback: look for ATP keys embedded in any top-level settings dict
+    _atp_state = ""
+    _atp_policy = ""
+    for d in (cfg.system_settings, cfg.av_settings, cfg.sandbox_settings, cfg.dos_settings):
+        if not isinstance(d, dict):
+            continue
+        _atp_state  = _atp_state  or _v(d, "ThreatProtection", "ATPStatus", "ActiveThreatResponse",
+                                         "XOpsThreatFeeds", "AdvancedThreatProtection")
+        _atp_policy = _atp_policy or _v(d, "ATPPolicy", "ThreatPolicy", "ThreatAction",
+                                         "DefaultAction", "DropAction")
+
+    if not _atp_state:
+        findings.append(Finding(
+            severity=Severity.MEDIUM,
+            category=_S,
+            title="Advanced Threat Protection (ATP) state not detected",
+            detail=(
+                "No Advanced Threat Protection / Sophos X-Ops threat feed configuration was found. "
+                "ATP blocks known malicious IPs, domains, and C2 infrastructure in real time using "
+                "Sophos threat intelligence. Without it, connections to known-bad destinations succeed silently."
+            ),
+            recommendation=(
+                "Enable ATP under Protect → Active threat response → Sophos X-Ops threat feeds "
+                "and set the policy to 'Log and Drop'. "
+                "Disabled ATP allows MITRE ATT&CK T1071 (Application Layer Protocol) C2 traffic "
+                "and T1568 (Dynamic Resolution) to reach known-bad infrastructure without detection. "
+                "Aligns with CIS Control 13.3 – Deploy a Network Intrusion Detection Solution."
+            ),
+            references=[
+                "MITRE ATT&CK T1071 – Application Layer Protocol",
+                "MITRE ATT&CK T1568 – Dynamic Resolution",
+                "CIS Control 13.3 – Deploy a Network Intrusion Detection Solution",
+                "OWASP A05:2021 – Security Misconfiguration",
+            ],
+            location=(
+                "Protect → Active threat response → Sophos X-Ops threat feeds\n"
+                "→ Enable → Policy: Log and Drop → Apply"
+            ),
+            exploitability="Medium", impact_scope="Network", exposure="External",
+        ))
+    else:
+        if _off(_atp_state):
+            findings.append(Finding(
+                severity=Severity.HIGH,
+                category=_S,
+                title="Advanced Threat Protection (ATP) is disabled",
+                detail=(
+                    "ATP / Sophos X-Ops threat feeds are explicitly disabled. "
+                    "Known C2 IPs, malware distribution points, and malicious domains are not blocked."
+                ),
+                recommendation=(
+                    "Enable ATP and set policy to 'Log and Drop'. "
+                    "Without ATP, MITRE ATT&CK T1071 (C2 over application protocols) and "
+                    "T1071.001 (Web Protocols) to known-bad infrastructure succeed undetected. "
+                    "Aligns with CIS Control 13.3."
+                ),
+                references=[
+                    "MITRE ATT&CK T1071 – Application Layer Protocol",
+                    "MITRE ATT&CK T1071.001 – Web Protocols",
+                    "CIS Control 13.3 – Deploy a Network Intrusion Detection Solution",
+                ],
+                location=(
+                    "Protect → Active threat response → Sophos X-Ops threat feeds\n"
+                    "→ Enable → Policy: Log and Drop → Apply"
+                ),
+                exploitability="High", impact_scope="Network", exposure="External",
+            ))
+        elif _atp_policy and _atp_policy.lower() not in ("log and drop", "logdrop", "drop", "block"):
+            findings.append(Finding(
+                severity=Severity.MEDIUM,
+                category=_S,
+                title="ATP policy is not set to 'Log and Drop'",
+                detail=(
+                    f"ATP is enabled but the action is '{_atp_policy}'. "
+                    "'Log only' lets threats reach their destination — it generates alerts but does not block."
+                ),
+                recommendation=(
+                    "Change the ATP policy to 'Log and Drop' so known-malicious connections are blocked, "
+                    "not just logged. Log-only ATP gives attackers uninterrupted C2 access while generating "
+                    "alerts that may go unreviewed. "
+                    "Aligns with MITRE ATT&CK Mitigation M1031 – Network Intrusion Prevention."
+                ),
+                references=[
+                    "MITRE ATT&CK Mitigation M1031 – Network Intrusion Prevention",
+                    "MITRE ATT&CK T1071 – Application Layer Protocol",
+                ],
+                location=(
+                    "Protect → Active threat response → Sophos X-Ops threat feeds\n"
+                    "→ Policy → change to 'Log and Drop' → Apply"
+                ),
+                exploitability="Medium", impact_scope="Network", exposure="External",
+            ))
+
     # ── Antivirus ─────────────────────────────────────────────────────────────
     av = cfg.av_settings
     if not av:
@@ -137,6 +240,34 @@ def run(cfg) -> list[Finding]:
                 ],
                 location="Web → Malware protection → Enable AV\nEmail → Antivirus → Enable",
                 exploitability="Medium", impact_scope="Network", exposure="External",
+            ))
+        engine = _v(av, "AntiVirusEngine", "Engine", "AVEngine", "PrimaryEngine", "MalwareEngine")
+        if engine and engine.lower() not in ("sophos", "sav", "savxl", "sophos av"):
+            findings.append(Finding(
+                severity=Severity.LOW,
+                category=_S,
+                title=f"Malware engine is not Sophos (detected: {engine})",
+                detail=(
+                    f"The configured antivirus engine is '{engine}'. "
+                    "Sophos recommends the Sophos engine for best integration with threat intelligence, "
+                    "Sandstorm cloud sandbox, and Live Protection. A non-Sophos engine may miss "
+                    "threats detected by SophosLabs and will not benefit from ATP feed correlation."
+                ),
+                recommendation=(
+                    "Set the primary antivirus engine to 'Sophos' under Configure → System services → "
+                    "Malware Protection. This ensures the tightest integration with Sophos Live Protection "
+                    "and Sandstorm analysis. "
+                    "Aligns with CIS Control 10.1 – Deploy and Maintain Anti-Malware Software."
+                ),
+                references=[
+                    "CIS Control 10.1 – Deploy and Maintain Anti-Malware Software",
+                    "MITRE ATT&CK T1204.002 – User Execution: Malicious File",
+                ],
+                location=(
+                    "Configure → System services → Malware Protection\n"
+                    "→ Antivirus engine → set to Sophos → Apply"
+                ),
+                exploitability="Low", impact_scope="Network", exposure="External",
             ))
         dual_scan = _v(av, "DualScan", "DualAV", "SecondaryEngine")
         if _off(dual_scan):

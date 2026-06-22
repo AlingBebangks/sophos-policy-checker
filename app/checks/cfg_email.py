@@ -21,6 +21,39 @@ def run(cfg) -> list[Finding]:
         ))
         return findings
 
+    # ── MTA mode (SMTP protection) ────────────────────────────────────────────
+    mta = _v(email, "MTAMode", "MTA", "SMTPMode", "EmailMode", "ProtectionMode", "Mode")
+    if not mta or mta.lower() in ("off", "disable", "disabled", "0", "false", ""):
+        findings.append(Finding(
+            severity=Severity.HIGH,
+            category=_S,
+            title="SMTP protection MTA mode is not enabled",
+            detail=(
+                "MTA (Mail Transfer Agent) mode enables the firewall to act as a full email proxy, "
+                "allowing it to inspect, quarantine, and block malicious email before delivery. "
+                "Without MTA mode active, email-borne threats (malware attachments, phishing links, "
+                "spam) bypass gateway-level inspection and reach internal mail servers directly."
+            ),
+            recommendation=(
+                "Enable SMTP protection MTA mode under Protect → Email → General Settings → "
+                "set to 'MTA mode'. Then configure antivirus, antispam, and sandboxing policies. "
+                "Without MTA mode, MITRE ATT&CK T1566.001 (Spearphishing Attachment) and "
+                "T1566.002 (Spearphishing Link) bypass all email gateway controls. "
+                "Aligns with CIS Control 9.6 – Block Unnecessary File Types."
+            ),
+            references=[
+                "MITRE ATT&CK T1566.001 – Phishing: Spearphishing Attachment",
+                "MITRE ATT&CK T1566.002 – Phishing: Spearphishing Link",
+                "CIS Control 9.6 – Block Unnecessary File Types",
+                "OWASP A05:2021 – Security Misconfiguration",
+            ],
+            location=(
+                "Protect → Email → General settings\n"
+                "→ SMTP deployment mode → select 'MTA mode' → Apply"
+            ),
+            exploitability="High", impact_scope="Network", exposure="External",
+        ))
+
     # ── TLS enforcement ───────────────────────────────────────────────────────
     tls = _v(email, "TLSEnabled", "TLS", "SMTPTLSEnabled", "TLSEncryption", "SecureTransport")
     if _off(tls):

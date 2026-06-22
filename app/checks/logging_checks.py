@@ -41,7 +41,72 @@ def run(cfg) -> list[Finding]:
             ],
             exploitability="Low", impact_scope="Local", exposure="Internal",
         ))
-    elif len(cfg.syslog_servers) == 1:
+    else:
+        # ── Syslog category coverage ──────────────────────────────────────────
+        # Check that the critical log categories are enabled on at least one server.
+        # Maps: (friendly name, XML keys to try)
+        _CRITICAL_CATS = [
+            ("IPS events",          ["IPS", "IPSLog", "IntrusionPrevention", "IPSEvents"]),
+            ("ATP/threat feed events", ["ATP", "ATPEvents", "ActiveThreatResponse", "ThreatProtection"]),
+            ("AV/malware events",   ["AntiVirus", "AVEvents", "MalwareProtection", "AntiVirusEvents"]),
+            ("Admin events",        ["AdminEvents", "Administration", "AdminLog"]),
+            ("Authentication events", ["AuthenticationEvents", "AuthEvents", "Authentication"]),
+            ("System events",       ["SystemEvents", "System", "SystemLog"]),
+            ("Firewall/security policy", ["FirewallRule", "SecurityPolicy", "PolicyRule", "FirewallLog"]),
+        ]
+
+        def _cat_enabled(server_dict: dict, keys: list[str]) -> bool:
+            """Return True if any of the key variants is present and not disabled."""
+            for k in keys:
+                val = server_dict.get(k, "")
+                if isinstance(val, dict):
+                    val = val.get("Status", val.get("Enable", val.get("Enabled", "")))
+                if val and str(val).lower() not in ("disable", "disabled", "0", "false", "off", ""):
+                    return True
+            return False
+
+        missing_cats: list[str] = []
+        for cat_name, cat_keys in _CRITICAL_CATS:
+            enabled_on_any = any(
+                _cat_enabled(s, cat_keys)
+                for s in cfg.syslog_servers
+                if isinstance(s, dict)
+            )
+            if not enabled_on_any:
+                missing_cats.append(cat_name)
+
+        if missing_cats:
+            findings.append(Finding(
+                severity=Severity.MEDIUM,
+                category="Logging",
+                title="Critical log categories not enabled on any syslog server",
+                detail=(
+                    "The following log categories were not found enabled on any configured syslog server: "
+                    + ", ".join(missing_cats) + ". "
+                    "Missing these categories means the SIEM/syslog destination receives an incomplete "
+                    "picture of firewall activity — attacks may succeed without any correlated alert."
+                ),
+                recommendation=(
+                    "In Firewall → Log settings → Syslog servers → edit each server, ensure the following "
+                    "categories are enabled: IPS events, ATP/threat events, AV events, admin events, "
+                    "authentication events, system events, and security policy (firewall) events. "
+                    "Aligns with OWASP A09:2021 – Security Logging and Monitoring Failures and "
+                    "CIS Control 8.5 – Collect Detailed Audit Logs."
+                ),
+                references=[
+                    "MITRE ATT&CK T1070 – Indicator Removal",
+                    "OWASP A09:2021 – Security Logging and Monitoring Failures",
+                    "CIS Control 8.5 – Collect Detailed Audit Logs",
+                ],
+                location=(
+                    "Firewall → Log settings → Syslog servers\n"
+                    "→ Edit server → enable: IPS, ATP, AV, Admin, Auth, System, Firewall categories → Save"
+                ),
+                affected=missing_cats,
+                exploitability="Low", impact_scope="Local", exposure="Internal",
+            ))
+
+    if len(cfg.syslog_servers) == 1:
         findings.append(Finding(
             severity=Severity.LOW,
             category="Logging",
