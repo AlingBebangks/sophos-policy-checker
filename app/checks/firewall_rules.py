@@ -36,14 +36,22 @@ def _zones_explicit(zones: list[str]) -> bool:
 
 
 def _zone_tier(zones: list[str]) -> str:
-    """Classify a zone list into WAN / DMZ / Internal / Unknown."""
+    """Classify a zone list into WAN / DMZ / Internal / Unknown.
+
+    Checks exact name first, then falls back to keyword-in-name matching so
+    custom zone names like 'pcare servers' or 'HQ-LAN' are classified correctly.
+    """
     names = {z.strip().lower() for z in zones}
-    if names & _WAN_ZONES:
-        return "WAN"
-    if names & _DMZ_ZONES:
-        return "DMZ"
-    if names & _INT_ZONES:
-        return "Internal"
+    # Exact match
+    if names & _WAN_ZONES:  return "WAN"
+    if names & _DMZ_ZONES:  return "DMZ"
+    if names & _INT_ZONES:  return "Internal"
+    # Keyword-in-name fallback: "pcare servers" contains "server" → DMZ
+    for n in names:
+        words = set(re.split(r"[\s\-_/]+", n))
+        if words & _WAN_ZONES:  return "WAN"
+        if words & _DMZ_ZONES:  return "DMZ"
+        if words & _INT_ZONES:  return "Internal"
     return "Unknown"
 
 
@@ -139,23 +147,46 @@ def run(cfg) -> list[Finding]:
         if action in ("accept", "allow") and _is_any(src_nets) and _is_any(dst_nets):
             src_tier = _zone_tier(src_zones)
             dst_tier = _zone_tier(dst_zones)
-            zones_defined = _zones_explicit(src_zones) and _zones_explicit(dst_zones)
-            if zones_defined:
-                # Zones constrain the traffic direction — this is NOT any-to-any.
-                # It is an overly broad network scope within a known zone pair.
+            src_explicit = _zones_explicit(src_zones)
+            dst_explicit = _zones_explicit(dst_zones)
+
+            if src_explicit and dst_explicit:
+                # Both zones intentionally scoped — not any-to-any, just broad network objects.
                 broad_net_rules.append(rule)
-            elif src_tier == "WAN":
-                aa_wan_to_any.append(rule)
-            elif src_tier == "DMZ" and dst_tier == "Internal":
-                aa_dmz_to_int.append(rule)
-            elif src_tier == "Internal" and dst_tier == "WAN":
-                aa_int_to_wan.append(rule)
-            elif src_tier == "Internal" and dst_tier == "DMZ":
-                aa_int_to_dmz.append(rule)
-            elif src_tier == "Internal" and dst_tier in ("Internal", "Unknown"):
-                aa_int_to_int.append(rule)
+            elif src_explicit and not dst_explicit:
+                # Source zone is named; destination is "any zone".
+                # Risk is driven by what the source tier is — a DMZ server sending
+                # to any zone is still a pivot risk; an internal host is lower.
+                if src_tier == "WAN":
+                    aa_wan_to_any.append(rule)
+                elif src_tier == "DMZ":
+                    aa_dmz_to_int.append(rule)   # DMZ → unconstrained = lateral pivot risk
+                elif src_tier == "Internal":
+                    aa_int_to_wan.append(rule)   # Internal → unconstrained = exfil risk
+                else:
+                    aa_other.append(rule)
+            elif not src_explicit and dst_explicit:
+                # Destination zone named; source is "any zone" — traffic from anywhere to a zone.
+                if dst_tier == "Internal":
+                    aa_wan_to_any.append(rule)   # unknown src → internal = inbound risk
+                elif dst_tier == "DMZ":
+                    aa_wan_to_any.append(rule)
+                else:
+                    aa_other.append(rule)
             else:
-                aa_other.append(rule)
+                # Neither zone is constrained — true any-to-any.
+                if src_tier == "WAN":
+                    aa_wan_to_any.append(rule)
+                elif src_tier == "DMZ" and dst_tier == "Internal":
+                    aa_dmz_to_int.append(rule)
+                elif src_tier == "Internal" and dst_tier == "WAN":
+                    aa_int_to_wan.append(rule)
+                elif src_tier == "Internal" and dst_tier == "DMZ":
+                    aa_int_to_dmz.append(rule)
+                elif src_tier == "Internal" and dst_tier in ("Internal", "Unknown"):
+                    aa_int_to_int.append(rule)
+                else:
+                    aa_other.append(rule)
 
         if log and log in ("disable", "disabled", "0", "false", "off") and action in ("accept", "allow"):
             no_log_rules.append(rule)
