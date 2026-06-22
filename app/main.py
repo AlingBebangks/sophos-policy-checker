@@ -12,6 +12,7 @@ from pathlib import Path
 from .parser import parse
 from .engine import run_all
 from .checks.models import Severity, finding_score
+from .checks.cis_benchmark import build_matrix
 
 _SGT = timezone(timedelta(hours=8))
 
@@ -131,6 +132,17 @@ def _build_context(filename: str, raw: bytes) -> dict:
                                         "Zone", "Services"}},
     }
 
+    cis = build_matrix(findings)
+    cis_counts = {
+        "fail":       sum(1 for c in cis if c.status == "fail"),
+        "pass":       sum(1 for c in cis if c.status == "pass"),
+        "not_tested": sum(1 for c in cis if c.status == "not_tested"),
+        "total":      len(cis),
+    }
+    cis_counts["pct_pass"] = round(
+        100 * cis_counts["pass"] / max(cis_counts["fail"] + cis_counts["pass"], 1)
+    )
+
     return {
         "filename":  filename,
         "generated": datetime.now(_SGT).strftime("%Y-%m-%d %H:%M GMT+8"),
@@ -138,6 +150,8 @@ def _build_context(filename: str, raw: bytes) -> dict:
         "counts":    counts,
         "stats":     stats,
         "exec":      _exec_summary(findings, counts),
+        "cis":       cis,
+        "cis_counts": cis_counts,
     }
 
 

@@ -226,6 +226,45 @@ body.web{background:#e8eaed}
 .no-findings{background:#fff;border-radius:5px;padding:18px;
   text-align:center;color:var(--muted)}
 
+/* ── CIS Controls v8 Section ────────────────────────────────────────────── */
+.cis-section{margin-top:28px}
+.cis-header{display:flex;align-items:center;justify-content:space-between;
+  background:#1a252f;color:#fff;border-radius:6px 6px 0 0;padding:14px 18px;flex-wrap:wrap;gap:8px}
+.cis-title{font-size:1rem;font-weight:700;letter-spacing:.02em}
+.cis-sub{font-size:0.75rem;color:#8fa8b8;margin-top:2px}
+.cis-summary-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cis-pill{font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:20px}
+.cis-pill-fail{background:#c0392b;color:#fff}
+.cis-pill-pass{background:#1e8449;color:#fff}
+.cis-pill-nt{background:#5d6d7e;color:#fff}
+.cis-pass-pct{font-size:0.85rem;font-weight:700;color:#f0e68c}
+.cis-group{margin-bottom:2px}
+.cis-group-name{background:#2c3e50;color:#bdc6d0;font-size:0.72rem;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;padding:5px 14px}
+.cis-table{width:100%;border-collapse:collapse;font-size:0.78rem;background:#fff}
+.cis-table th{background:#f4f6f8;font-weight:600;font-size:0.72rem;color:#5d6d7e;
+  padding:6px 10px;text-align:left;border-bottom:1px solid #dee2e8;text-transform:uppercase;letter-spacing:.04em}
+.cis-table td{padding:7px 10px;border-bottom:1px solid #f0f3f6;vertical-align:top}
+.cis-row.cis-fail{background:#fff}
+.cis-row.cis-pass{background:#f9fffe}
+.cis-row.cis-not_tested{background:#fafafa}
+.cis-row:hover{background:#f5f8ff}
+.cis-id{font-weight:700;color:#1a252f;font-family:monospace;font-size:0.8rem;white-space:nowrap}
+.cis-ig{font-size:0.7rem;color:#888;font-weight:500}
+.cis-ctrl-title{color:#2c3e50}
+.cis-findings{color:#555}
+.cis-finding-ref{font-size:0.72rem;padding:1px 0;color:#444}
+.cis-finding-ref::before{content:"· ";color:#aaa}
+.cis-none{color:#bbb;font-style:italic;font-size:0.72rem}
+.cis-badge{display:inline-block;font-size:0.68rem;font-weight:600;padding:2px 8px;border-radius:3px}
+.cis-badge-critical{background:#fde8e8;color:#922b21}
+.cis-badge-high{background:#fef0e0;color:#784212}
+.cis-badge-medium{background:#fefde0;color:#7d6608}
+.cis-badge-low{background:#e8f4fd;color:#1a5276}
+.cis-badge-info{background:#f0f0f0;color:#666}
+.cis-badge-pass{background:#eafaf1;color:#1e8449}
+.cis-badge-nt{background:#f0f0f0;color:#aaa;font-style:italic}
+
 footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
 
 /* ═══════════════════════════════════════════════════════════
@@ -984,6 +1023,113 @@ footer{text-align:center;padding:10px;font-size:0.68rem;color:#aaa}
   <div class="no-findings">No findings generated. Verify the file is a valid Sophos XG/SFOS configuration backup.</div>
   {% endif %}
 
+  {% if not pdf_mode %}
+  <!-- ── CIS Controls v8 Compliance Matrix (web only) ───────────────────── -->
+  <div class="cis-section">
+    <div class="cis-header">
+      <div>
+        <div class="cis-title">CIS Controls v8 Benchmark</div>
+        <div class="cis-sub">Compliance mapping across {{ cis_counts.total }} applicable controls</div>
+      </div>
+      <div class="cis-summary-pills">
+        <span class="cis-pill cis-pill-fail">{{ cis_counts.fail }} failing</span>
+        <span class="cis-pill cis-pill-pass">{{ cis_counts.pass }} passing</span>
+        <span class="cis-pill cis-pill-nt">{{ cis_counts.not_tested }} not tested</span>
+        <span class="cis-pass-pct">{{ cis_counts.pct_pass }}% pass rate</span>
+      </div>
+    </div>
+
+    {% set cis_groups = cis | groupby('group') %}
+    {% for group_name, group_controls in cis_groups %}
+    <div class="cis-group">
+      <div class="cis-group-name">{{ group_name }}</div>
+      <table class="cis-table">
+        <thead>
+          <tr>
+            <th style="width:6%">Control</th>
+            <th style="width:4%">IG</th>
+            <th style="width:35%">Title</th>
+            <th style="width:8%">Status</th>
+            <th>Findings</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in group_controls %}
+          <tr class="cis-row cis-{{ c.status }}">
+            <td class="cis-id">{{ c.control_id }}</td>
+            <td class="cis-ig">IG{{ c.ig }}</td>
+            <td class="cis-ctrl-title">{{ c.title }}</td>
+            <td>
+              {% if c.status == 'fail' %}
+                <span class="cis-badge cis-badge-{{ c.severity|lower }}">{{ c.severity }}</span>
+              {% elif c.status == 'pass' %}
+                <span class="cis-badge cis-badge-pass">Pass</span>
+              {% else %}
+                <span class="cis-badge cis-badge-nt">—</span>
+              {% endif %}
+            </td>
+            <td class="cis-findings">
+              {% for t in c.finding_titles %}
+              <div class="cis-finding-ref">{{ t }}</div>
+              {% else %}
+              <span class="cis-none">Not evaluated</span>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if pdf_mode and exec_mode %}
+  <!-- ── CIS Controls v8 Compliance Matrix (PDF executive) ─────────────── -->
+  <div style="page-break-before:always"></div>
+  <h2 style="font-size:11pt;font-weight:700;color:#1a252f;margin-bottom:4pt;margin-top:0">
+    CIS Controls v8 Benchmark Compliance
+  </h2>
+  <p style="font-size:8pt;color:#555;margin-bottom:8pt">
+    {{ cis_counts.fail }} failing · {{ cis_counts.pass }} passing ·
+    {{ cis_counts.not_tested }} not evaluated · {{ cis_counts.pct_pass }}% pass rate
+    across {{ cis_counts.total }} applicable controls
+  </p>
+  <table style="width:100%;border-collapse:collapse;font-size:7.5pt;table-layout:fixed">
+    <colgroup><col style="width:7%"><col style="width:5%"><col style="width:40%"><col style="width:9%"><col style="width:39%"></colgroup>
+    <thead>
+      <tr style="background:#1a252f;color:#fff">
+        <th style="padding:4pt 6pt;text-align:left">Control</th>
+        <th style="padding:4pt 6pt;text-align:left">IG</th>
+        <th style="padding:4pt 6pt;text-align:left">Title</th>
+        <th style="padding:4pt 6pt;text-align:left">Status</th>
+        <th style="padding:4pt 6pt;text-align:left">Findings</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set _sev_col = {'Critical':'#c0392b','High':'#d35400','Medium':'#b7950b','Low':'#2471a3','Info':'#717d7e'} %}
+      {% for c in cis %}
+      <tr style="border-bottom:0.5pt solid #dee2e8;{% if loop.index is odd %}background:#f9fafb{% endif %}">
+        <td style="padding:3pt 6pt;font-weight:600">{{ c.control_id }}</td>
+        <td style="padding:3pt 6pt;color:#666">IG{{ c.ig }}</td>
+        <td style="padding:3pt 6pt">{{ c.title }}</td>
+        <td style="padding:3pt 6pt">
+          {% if c.status == 'fail' %}
+            <span style="color:{{ _sev_col.get(c.severity,'#c0392b') }};font-weight:600">{{ c.severity }}</span>
+          {% elif c.status == 'pass' %}
+            <span style="color:#1e8449;font-weight:600">Pass</span>
+          {% else %}
+            <span style="color:#aaa">—</span>
+          {% endif %}
+        </td>
+        <td style="padding:3pt 6pt;color:#555">
+          {% for t in c.finding_titles %}{{ t }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 
 </div>
 <footer>Firewall Security Assessment &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; Authorised use only &nbsp;·&nbsp; {{ generated }}</footer>
