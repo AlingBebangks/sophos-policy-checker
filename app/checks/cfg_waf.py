@@ -90,20 +90,20 @@ def run(cfg) -> list[Finding]:
                          "SignCookies", "CookieSecurity")
         if _off(cookie_sign):
             findings.append(Finding(
-                severity=Severity.HIGH,
+                severity=Severity.MEDIUM,
                 category=_S,
                 title=f"CIS 5.5 – WAF policy '{name}': cookie signing not enabled",
                 detail=(
                     f"WAF protection policy '{name}' does not have cookie signing enabled. "
-                    "Without cookie signing, attackers can forge or tamper with session cookies, "
-                    "enabling session fixation, privilege escalation, and cookie theft attacks "
-                    "that bypass application-layer session management."
+                    "Cookie signing is a defence-in-depth control: it cryptographically binds "
+                    "cookies to the server so that tampered or forged cookies are rejected at "
+                    "the WAF layer. An attacker exploiting this gap still needs an existing "
+                    "session management weakness in the protected application."
                 ),
                 recommendation=(
                     f"Edit WAF policy '{name}' → Protection → enable 'Cookie signing'. "
-                    "Cookie signing cryptographically binds cookies to the server, "
-                    "preventing forgery even if the application itself sets weak cookies. "
-                    "Aligns with CIS Sophos Benchmark §5.5."
+                    "This reduces session-related risk even when the application itself sets "
+                    "weak cookies. Aligns with CIS Sophos Benchmark §5.5."
                 ),
                 references=[
                     "CIS Sophos Benchmark §5.5",
@@ -115,7 +115,7 @@ def run(cfg) -> list[Finding]:
                     f"Protect → Web server → Protection policies → Edit '{name}'\n"
                     "→ Protection → Cookie signing → Enable → Save"
                 ),
-                exploitability="High", impact_scope="Network", exposure="External",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
         # ── Static URL hardening ──────────────────────────────────────────────
@@ -147,7 +147,7 @@ def run(cfg) -> list[Finding]:
                     f"Protect → Web server → Protection policies → Edit '{name}'\n"
                     "→ Protection → Static URL hardening → Enable → Save"
                 ),
-                exploitability="High", impact_scope="Network", exposure="External",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
         # ── Form hardening ────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ def run(cfg) -> list[Finding]:
                     f"Protect → Web server → Protection policies → Edit '{name}'\n"
                     "→ Protection → Form hardening → Enable → Save"
                 ),
-                exploitability="High", impact_scope="Network", exposure="External",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
         # ── AV scanning in WAF ────────────────────────────────────────────────
