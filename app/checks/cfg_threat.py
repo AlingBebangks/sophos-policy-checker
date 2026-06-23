@@ -239,7 +239,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Control 10.1 – Deploy and Maintain Anti-Malware Software",
                 ],
                 location="Web → Malware protection → Enable AV\nEmail → Antivirus → Enable",
-                exploitability="Medium", impact_scope="Network", exposure="External",
+                exploitability="High", impact_scope="Network", exposure="External",
             ))
         engine = _v(av, "AntiVirusEngine", "Engine", "AVEngine", "PrimaryEngine", "MalwareEngine")
         if engine and engine.lower() not in ("sophos", "sav", "savxl", "sophos av"):
@@ -302,7 +302,7 @@ def run(cfg) -> list[Finding]:
                 "OWASP A06:2021 – Vulnerable and Outdated Components",
             ],
             location="Web → Malware protection → Sandstorm → Enable\nEmail → Sandstorm → Enable",
-            exploitability="Low", impact_scope="Local", exposure="Internal",
+            exploitability="Low", impact_scope="Network", exposure="External",
         ))
     else:
         status = _v(sandbox, "Status", "Enable", "Enabled", "State")
@@ -322,7 +322,7 @@ def run(cfg) -> list[Finding]:
                     "OWASP A06:2021 – Vulnerable and Outdated Components",
                 ],
                 location="Web → Malware protection → Sandstorm → Enable → Apply",
-                exploitability="Low", impact_scope="Local", exposure="Internal",
+                exploitability="Low", impact_scope="Network", exposure="External",
             ))
 
     # ── Web Filtering ─────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ def run(cfg) -> list[Finding]:
                     "→ Edit rule → Security features → assign Web filter policy → Save"
                 ),
                 affected=rules_without_wf,
-                exploitability="Medium", impact_scope="Network", exposure="Internal",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
     # ── Application Control ───────────────────────────────────────────────────
@@ -402,7 +402,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 9.2 – Ensure Only Approved Ports/Services/Protocols Are Running",
             ],
             location="Firewall → Rules and policies → Application filter → Create policy → Apply to firewall rules",
-            exploitability="Low", impact_scope="Network", exposure="Internal",
+            exploitability="Low", impact_scope="Network", exposure="External",
         ))
 
     # ── SSL/TLS Inspection ────────────────────────────────────────────────────
@@ -429,7 +429,7 @@ def run(cfg) -> list[Finding]:
                 "CIS Control 13.7 – Deploy a Host-Based Intrusion Detection Solution",
             ],
             location="Web → SSL/TLS inspection → Create inspection rule → Apply to firewall rules",
-            exploitability="Low", impact_scope="Network", exposure="External",
+            exploitability="High", impact_scope="Network", exposure="External",
         ))
     else:
         status = _v(ssl, "Status", "Enable", "Enabled", "State")
@@ -451,7 +451,7 @@ def run(cfg) -> list[Finding]:
                     "OWASP A05:2021 – Security Misconfiguration",
                 ],
                 location="Web → SSL/TLS inspection → Enable → Apply",
-                exploitability="Low", impact_scope="Network", exposure="External",
+                exploitability="High", impact_scope="Network", exposure="External",
             ))
 
     # ── DoS / Flood Protection ────────────────────────────────────────────────

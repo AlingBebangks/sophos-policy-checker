@@ -5,7 +5,7 @@ from .checks import (
     firewall_rules, vpn, admin, logging_checks, nat,
     # Config checks
     cfg_system, cfg_auth, cfg_certificates, cfg_network, cfg_threat, cfg_email,
-    cfg_ports, cfg_protection,
+    cfg_ports, cfg_protection, cfg_waf,
 )
 from .checks.framework_refs import enrich
 from .checks.real_world_cases import match as _match_cases
@@ -19,7 +19,7 @@ def run_all(cfg: SophosConfig) -> list[Finding]:
         firewall_rules, vpn, admin, logging_checks, nat,
         # Configuration hardening
         cfg_system, cfg_auth, cfg_certificates, cfg_network, cfg_threat, cfg_email,
-        cfg_ports, cfg_protection,
+        cfg_ports, cfg_protection, cfg_waf,
     ):
         findings.extend(module.run(cfg))
     # Append NIST SP 800-53 Rev 5 and CIS Controls v8 references to every finding.

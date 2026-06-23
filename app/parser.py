@@ -51,6 +51,8 @@ class SophosConfig:
     active_threat_response: dict = field(default_factory=dict)
     # Protection profiles
     wireless_settings: list[dict] = field(default_factory=list)
+    # WAF / Web Server Protection policies
+    waf_policies: list[dict]    = field(default_factory=list)
     # Licensing / subscriptions
     licensing_settings: dict    = field(default_factory=dict)
     # Misc
@@ -330,6 +332,33 @@ def parse(xml_bytes: bytes) -> SophosConfig:
         wl_el = _first(root, ".//Wireless", ".//WirelessSettings", ".//APSettings")
         if wl_el is not None:
             cfg.wireless_settings = [_el_to_dict(wl_el)]
+
+    # ── WAF / Web Server Protection ───────────────────────────────────────────
+    # SFOS stores WAF protection policies under several possible element names.
+    _WAF_POLICY_TAGS = (
+        "WAFRule", "WAFPolicy", "WebServerProtection", "WebApplicationFirewall",
+        "WebProtectionPolicy", "ReverseProxyRule",
+    )
+    for tag in _WAF_POLICY_TAGS:
+        for el in root.iter(tag):
+            d = _el_to_dict(el)
+            d["_tag"] = tag
+            cfg.waf_policies.append(d)
+    # Also capture the top-level WAF container dict for global enable/disable checks
+    if not cfg.waf_policies:
+        waf_container = _first(root, ".//WAFSettings", ".//WAFConfiguration",
+                               ".//WebApplicationFirewallSettings")
+        if waf_container is not None:
+            cfg.waf_policies = [_el_to_dict(waf_container)]
+
+    # Per-firewall-rule WAF references — enrich existing rule dicts
+    for idx, rule in enumerate(root.iter("FirewallRule")):
+        waf_ref = (
+            _text(rule, "WAFPolicy") or _text(rule, "WebProtectionPolicy") or
+            _text(rule, "WebServerProtection") or _text(rule, "HTTPSProtection") or ""
+        )
+        if idx < len(cfg.firewall_rules):
+            cfg.firewall_rules[idx]["waf_policy"] = waf_ref
 
     lic_el = _first(root, ".//Licensing", ".//LicenseSettings", ".//Subscriptions",
                     ".//ModuleSubscriptions")

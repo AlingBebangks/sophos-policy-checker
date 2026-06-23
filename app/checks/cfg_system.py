@@ -222,7 +222,7 @@ def run(cfg) -> list[Finding]:
                     "CIS Sophos Benchmark §3.2",
                 ],
                 location="System → Updates → Enable automatic updates → set frequency to Daily → Apply",
-                exploitability="Low", impact_scope="Network", exposure="External",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
         else:
             # CIS 3.2: interval should be every 15 minutes
@@ -293,7 +293,7 @@ def run(cfg) -> list[Finding]:
                     "Sophos CLI: Select Option 4 > Advanced Shell\n"
                     "> system hotfix enable"
                 ),
-                exploitability="Low", impact_scope="Network", exposure="External",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
     # ── CIS 3.5 – No expired subscriptions ───────────────────────────────────
@@ -332,7 +332,7 @@ def run(cfg) -> list[Finding]:
                     "→ Synchronize → contact Sophos to renew expired modules"
                 ),
                 affected=expired,
-                exploitability="Low", impact_scope="Network", exposure="External",
+                exploitability="Medium", impact_scope="Network", exposure="External",
             ))
 
     # ── Backup ────────────────────────────────────────────────────────────────
